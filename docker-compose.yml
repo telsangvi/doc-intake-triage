@@ -1,0 +1,20 @@
+# Local container run:  docker compose up --build
+# Then open http://127.0.0.1:8000
+#
+# Defaults to the offline mock provider, so no API key is needed.
+# To use a real model:
+#   export DOC_TRIAGE_PROVIDER=openai OPENAI_API_KEY=sk-...
+#   docker compose up --build
+
+services:
+  api:
+    build: .
+    image: doc-intake-triage:local
+    ports:
+      - "8000:8000"
+    environment:
+      DOC_TRIAGE_PROVIDER: ${DOC_TRIAGE_PROVIDER:-mock}
+      DOC_TRIAGE_MODEL: ${DOC_TRIAGE_MODEL:-gpt-4o-mini}
+      LOW_CONF_THRESHOLD: ${LOW_CONF_THRESHOLD:-0.60}
+      HIGH_CONF_THRESHOLD: ${HIGH_CONF_THRESHOLD:-0.85}
+    restart: unless-stopped

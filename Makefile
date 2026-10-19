@@ -1,4 +1,4 @@
-.PHONY: install demo eval test api clean
+.PHONY: install demo eval tune ft retrieve test api docker clean
 
 install:
 	pip install -r requirements.txt
@@ -11,6 +11,18 @@ demo:
 eval:
 	python -m src.cli eval
 
+# Grid-search the routing thresholds.
+tune:
+	python -m src.cli tune
+
+# Write a fine-tune dataset (does not launch a job).
+ft:
+	python -m src.cli export-ft
+
+# Inspect the policy retrieval index.
+retrieve:
+	python -m src.cli retrieve "income evidence"
+
 test:
 	pytest -q
 
@@ -18,5 +30,9 @@ test:
 api:
 	uvicorn src.api:app --reload
 
+docker:
+	docker compose up --build
+
 clean:
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+	rm -rf .pytest_cache

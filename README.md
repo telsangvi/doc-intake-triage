@@ -7,8 +7,8 @@ AI Engineer (FDE) skill set.
 The scenario: a public-benefits office receives a pile of unstructured
 documents (applications, medical letters, ID proofs, income slips). Staff read
 each one, pull out the key fields, notice what's missing, and decide what
-happens next. This project does the first pass automatically and hands a human
-a prioritised queue.
+happens next. This project does the first pass automatically, cites the policy
+it applied, and hands a human a prioritised queue.
 
 > **Why this shape?** FDE roles are consistently described as: embed with a
 > customer, find the real workflow, prototype fast, **measure it with evals**,
@@ -24,6 +24,8 @@ pip install -r requirements.txt
 
 python -m src.cli run data/samples     # process the sample documents
 python -m src.cli eval                 # score against the labelled gold set
+python -m src.cli tune                 # sweep the routing thresholds
+python -m src.cli retrieve "income evidence"   # inspect the policy index
 python -m pytest -q                    # run the tests
 
 uvicorn src.api:app --reload           # then open http://127.0.0.1:8000
@@ -31,15 +33,21 @@ uvicorn src.api:app --reload           # then open http://127.0.0.1:8000
 
 No API key is required. Everything runs with a built-in offline extractor.
 
+### Containerised
+
+```bash
+docker compose up --build              # then open http://127.0.0.1:8000
+```
+
 ---
 
 ## What happens to a document
 
 ```
-file ──► ingest ──► extract ──► validate ──► route
-        (text)     (model →    (policy +    (auto_route /
-                    typed       confidence)  human_review /
-                    object)                  incomplete)
+file ─► ingest ─► extract ─► validate ─► retrieve ─► route
+       (text)    (model →    (policy +   (cite the   (auto_route /
+                  typed       confidence) policy)     human_review /
+                  object)                             incomplete)
 ```
 
 - **ingest** (`src/ingest.py`) — PDF/text → plain text.
@@ -48,6 +56,8 @@ file ──► ingest ──► extract ──► validate ──► route
   confidence.
 - **validate** (`src/validate.py`) — two separate checks: *completeness*
   (are required fields present?) and *confidence* (do we trust the values?).
+- **retrieve** (`src/retrieve.py`) — find the policy clause the decision
+  relies on, so the rationale is citable.
 - **route** (`src/schemas.py`) — three outcomes:
   - `auto_route` — complete and confident, straight through
   - `incomplete` — a required field is missing, goes back to the applicant
@@ -55,6 +65,51 @@ file ──► ingest ──► extract ──► validate ──► route
 
 That split — *missing* vs *untrusted* — is the whole point. It is what lets a
 system be useful without pretending to be certain.
+
+---
+
+## Retrieval (the RAG half)
+
+A decision that says "missing income" is only useful if it can say *which rule*
+it applied. `src/retrieve.py` indexes the office's policy corpus in
+`data/policy/`, chunks it on headings so every passage keeps its clause id, and
+attaches the top matches to each result:
+
+```
+- case_002_application.txt: Missing required field(s): monthly_income.
+  Request from applicant. Applies 4.2(a) Requirement.
+```
+
+The embedder is swappable, exactly like the model. `HashingEmbedder` runs
+offline with no network, so the project still starts with zero setup. It matches
+on vocabulary, not meaning — swap in `OpenAIEmbedder` (or any real embedding
+model) before you trust the ranking. Being honest about which one you're running
+is part of the job.
+
+```bash
+python -m src.cli retrieve "identity document name mismatch"
+```
+
+---
+
+## Tuning
+
+"Tuning" is three different jobs, kept apart in `src/tuning.py`:
+
+1. **Routing-policy tuning** — choosing the confidence thresholds. This is a
+   business decision: how much risk of a wrong auto-route will the customer
+   accept? `python -m src.cli tune` grid-searches the thresholds against the
+   gold set and reports decision accuracy alongside auto-route precision,
+   because the two trade off.
+2. **Prompt / few-shot tuning** — `PROMPT_VARIANTS` holds candidate templates.
+   Score them with the eval harness; keep the winner.
+3. **Fine-tuning** — `python -m src.cli export-ft` writes a labelled training
+   file in provider chat format. It **does not launch a job**: that needs
+   credentials and spends money, so it stays a deliberate manual step.
+
+One honest note: under `provider=mock` the extractor ignores the prompt, so a
+prompt sweep scores identically for every variant. That is the lesson, not a
+bug — you cannot tune a model that does not read your prompt.
 
 ---
 
@@ -69,15 +124,21 @@ doc-intake-triage/
 │   ├── ingest.py      # file -> text (pdf/txt/md)
 │   ├── extract.py     # model output -> validated Extraction
 │   ├── validate.py    # completeness + confidence -> decision
+│   ├── retrieve.py    # policy index + retrieval (RAG)
 │   ├── pipeline.py    # orchestration
 │   ├── evals.py       # the evaluation harness
-│   ├── cli.py         # run / eval commands
+│   ├── tuning.py      # threshold sweep, prompt variants, fine-tune export
+│   ├── cli.py         # run / eval / tune / export-ft / retrieve
 │   └── api.py         # FastAPI service
 ├── app/index.html     # one-page review-queue UI
 ├── data/
 │   ├── samples/       # 6 synthetic case documents
+│   ├── policy/        # the office's policy corpus (retrieval source)
 │   └── labels.jsonl   # the gold set the evals score against
-├── tests/             # routing + end-to-end tests
+├── tests/             # routing, retrieval, and end-to-end tests
+├── Dockerfile         # container image
+├── docker-compose.yml # local run
+├── .github/workflows/ # CI: tests + eval gate
 └── PROJECT_PLAN.md    # the engagement plan this code implements
 ```
 
@@ -106,22 +167,6 @@ move is the exercise.
 
 ---
 
-## The eval harness
-
-`python -m src.cli eval` prints a scorecard:
-
-```
-doc-type accuracy: 100%
-decision accuracy: 100%
-field accuracy   : 100%
-```
-
-Three numbers, because there are three different things to get right:
-classification, extraction, and routing. Field-level misses are printed by name
-— they are your next prompt or rule iteration.
-
----
-
 ## Where to take it next (your FDE reps)
 
 Roughly in order of learning value:
@@ -130,16 +175,16 @@ Roughly in order of learning value:
    one page. Watch the scorecard drop, then fix it. This is the real job.
 2. **Fuzzy field matching.** Right now evals compare strings exactly. Add
    normalisation for dates and currency so "INR 18,500" == "18,500".
-3. **Human-in-the-loop feedback.** Let a reviewer correct a field in the UI and
+3. **Real embeddings.** Swap `HashingEmbedder` for a semantic embedder and
+   measure whether retrieval actually improves the cited clause.
+4. **Human-in-the-loop feedback.** Let a reviewer correct a field in the UI and
    append the correction to the gold set. Now the system improves with use.
-4. **Batch + queue persistence.** Store results in SQLite; add a status per
+5. **Batch + queue persistence.** Store results in SQLite; add a status per
    case (new / reviewed / sent back).
-5. **Cost & latency.** Log tokens and ms per document; add a cheap-model-first
+6. **Cost & latency.** Log tokens and ms per document; add a cheap-model-first
    fallback for easy documents.
-6. **Policy config, not code.** Move `REQUIRED_FIELDS` into a YAML file the
+7. **Policy config, not code.** Move `REQUIRED_FIELDS` into a YAML file the
    customer can edit without a deploy.
-7. **Deploy it.** Containerise the API, add a health check and structured
-   logs, and run it somewhere real.
 
 Each of these maps to a line you can say in an interview: *"the customer
 needed X, so I changed Y, and the eval went from A to B."*

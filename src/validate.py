@@ -6,6 +6,11 @@ Two distinct things are checked, and conflating them is a common mistake:
 * Confidence    - do we trust the values we did extract?
 
 Completeness routes back to the applicant; confidence routes to a human.
+
+The confidence check has two levels, which is what makes the routing
+thresholds tunable (see `tuning.py`):
+  * below `low`  -> the field is not trustworthy at all, flag the document
+  * below `high` -> present and plausible, but not good enough to auto-route
 """
 from __future__ import annotations
 
@@ -23,23 +28,37 @@ def find_missing(extraction: Extraction) -> list[str]:
     return missing
 
 
-def find_flags(extraction: Extraction) -> list[str]:
+def find_flags(extraction: Extraction, low: float | None = None) -> list[str]:
+    low = settings.low_confidence_threshold if low is None else low
     flags: list[str] = []
     if extraction.doc_type == DocType.UNKNOWN:
         flags.append("unknown_doc_type")
-    if extraction.doc_type_confidence < settings.low_confidence_threshold:
+    if extraction.doc_type_confidence < low:
         flags.append(f"low_type_confidence:{extraction.doc_type_confidence:.2f}")
     for name, fv in extraction.fields.items():
-        if not fv.is_missing and fv.confidence < settings.low_confidence_threshold:
+        if not fv.is_missing and fv.confidence < low:
             flags.append(f"low_confidence:{name}")
     return flags
 
 
-def decide(missing: list[str], flags: list[str]) -> Decision:
+def decide(
+    extraction: Extraction,
+    missing: list[str],
+    flags: list[str],
+    high: float | None = None,
+) -> Decision:
+    high = settings.high_confidence_threshold if high is None else high
     if missing:
         return Decision.INCOMPLETE
     if flags:
         return Decision.HUMAN_REVIEW
+    # Everything required is present and above `low`. Auto-routing also
+    # demands the required fields clear `high` — a wrong auto-route is worse
+    # than sending the document to a person.
+    for name in REQUIRED_FIELDS.get(extraction.doc_type, []):
+        fv = extraction.fields.get(name)
+        if fv is not None and not fv.is_missing and fv.confidence < high:
+            return Decision.HUMAN_REVIEW
     return Decision.AUTO_ROUTE
 
 

@@ -24,7 +24,7 @@ def test_complete_and_confident_auto_routes():
     missing, flags = find_missing(ext), find_flags(ext)
     assert missing == []
     assert flags == []
-    assert decide(missing, flags) == Decision.AUTO_ROUTE
+    assert decide(ext, missing, flags) == Decision.AUTO_ROUTE
 
 
 def test_missing_required_field_is_incomplete():
@@ -32,7 +32,7 @@ def test_missing_required_field_is_incomplete():
     ext.fields["monthly_income"] = FieldValue(value=None, confidence=0.0)
     missing, flags = find_missing(ext), find_flags(ext)
     assert "monthly_income" in missing
-    assert decide(missing, flags) == Decision.INCOMPLETE
+    assert decide(ext, missing, flags) == Decision.INCOMPLETE
 
 
 def test_low_confidence_routes_to_human():
@@ -41,7 +41,16 @@ def test_low_confidence_routes_to_human():
     missing, flags = find_missing(ext), find_flags(ext)
     assert missing == []
     assert any(f.startswith("low_confidence") for f in flags)
-    assert decide(missing, flags) == Decision.HUMAN_REVIEW
+    assert decide(ext, missing, flags) == Decision.HUMAN_REVIEW
+
+
+def test_medium_confidence_does_not_auto_route():
+    """Present and above `low`, but below `high` -> a human, not a shortcut."""
+    ext = _complete_application()
+    ext.fields["applicant_name"] = FieldValue(value="R Kumar", confidence=0.7)
+    missing, flags = find_missing(ext), find_flags(ext)
+    assert flags == []  # 0.7 clears the low threshold
+    assert decide(ext, missing, flags) == Decision.HUMAN_REVIEW
 
 
 def test_unknown_doc_type_is_flagged():

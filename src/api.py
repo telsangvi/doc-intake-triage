@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 from .config import settings
 from .llm import get_client
 from .pipeline import process_file
+from .retrieve import default_retriever
 
 app = FastAPI(title="Document Intake Triage", version="0.1.0")
 APP_DIR = Path(__file__).resolve().parent.parent / "app"
@@ -48,12 +49,13 @@ async def queue(files: list[UploadFile] = File(...)) -> list[dict]:
 
 async def _process_uploads(files: list[UploadFile]) -> list[dict]:
     client = get_client()
+    retriever = default_retriever()
     out: list[dict] = []
     with tempfile.TemporaryDirectory() as tmp:
         for upload in files:
             dest = Path(tmp) / Path(upload.filename or "upload.txt").name
             dest.write_bytes(await upload.read())
-            result = process_file(dest, client)
+            result = process_file(dest, client, retriever)
             # Keep the original filename in the response, not the temp path.
             result.source_file = upload.filename or dest.name
             out.append(result.model_dump(mode="json"))

@@ -46,6 +46,19 @@ class Extraction(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class PolicyRef(BaseModel):
+    """A policy passage the routing decision relied on.
+
+    Carrying the clause id (not just the text) is what makes a decision
+    auditable — see Policy 2.0(d).
+    """
+
+    clause: str
+    source: str
+    text: str
+    score: float = 0.0
+
+
 class CaseResult(BaseModel):
     """One processed document, ready for the review queue."""
 
@@ -56,6 +69,7 @@ class CaseResult(BaseModel):
     flags: list[str] = Field(default_factory=list)
     decision: Decision = Decision.HUMAN_REVIEW
     rationale: str = ""
+    policy_refs: list[PolicyRef] = Field(default_factory=list)
 
 
 # --- Policy: what a "complete" document of each type must contain. -------

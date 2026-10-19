@@ -145,6 +145,8 @@ function render(items) {
       <div class="fields">${rows || '<div class="k">No fields</div>'}</div>
       ${r.missing_fields.length ? `<div class="note">Missing: ${r.missing_fields.join(', ')}</div>` : ''}
       ${r.flags.length ? `<div class="note">Flags: ${r.flags.join(', ')}</div>` : ''}
+      ${(r.policy_refs && r.policy_refs.length)
+          ? `<div class="note">Policy: ${r.policy_refs.map(x => escapeHtml(x.clause)).join('; ')}</div>` : ''}
       <div class="note" style="margin-top:8px">${escapeHtml(r.rationale)}</div>
     </div>`;
   }).join('');

@@ -67,6 +67,11 @@ human-review bucket.
                     │          + confidence thresholds          │
                     └───────────────────┬──────────────────────┘
                                         ▼
+                    ┌──────────────────────────────────────────┐
+                    │  retrieve: policy clause the decision     │
+                    │  relies on (RAG over data/policy)         │
+                    └───────────────────┬──────────────────────┘
+                                        ▼
               ┌─────────────────┬───────────────┬─────────────────┐
               ▼                 ▼               ▼
         auto_route        human_review      incomplete
@@ -81,6 +86,10 @@ Two design choices carry the weight:
   the evals score. The model is swappable; the contract is not.
 - **Confidence is a first-class field.** Every value carries a score, so the
   system can say "I found it, but I'm not sure" instead of guessing.
+- **Every decision is grounded and citable.** The routing decision retrieves the
+  policy clause it applied from the office's own corpus and records it. A
+  decision that cannot name its rule is not auditable, and Policy 2.0(d)
+  requires that it can be explained later.
 
 ---
 
@@ -109,12 +118,17 @@ path: one document type, extract, route, print. Demo it on day 4.
 **Week 2 — evals and the hard documents.**
 Write the gold set *before* tuning anything. Measure classification, field
 extraction, and routing separately. Add the documents that break it — scans,
-handwriting, multi-page. Iterate prompt and rules against the scorecard.
+handwriting, multi-page. Iterate prompt and rules against the scorecard. Add the
+policy corpus and wire retrieval into the rationale, so every decision names the
+clause it applied.
 
-**Week 3 — review queue and rollout.**
-Ship the review-queue UI. Add reviewer corrections feeding the gold set. Put
-the API behind a health check and logs. Run it alongside the manual process on
-a real batch, compare, and tune thresholds to the customer's risk appetite.
+**Week 3 — review queue, tuning, and rollout.**
+Ship the review-queue UI. Sweep the routing thresholds against the customer's
+risk appetite: how much auto-route precision will they accept, and how much
+human review will they staff? Add reviewer corrections feeding the gold set.
+Containerise the service, put the API behind a health check and logs, and add a
+CI gate so the eval score cannot silently regress. Run it alongside the manual
+process on a real batch, compare, and tune.
 
 Throughout: a running one-page log of decisions and their reasons — the
 artifact that turns a deployment into reusable patterns.
@@ -131,6 +145,12 @@ artifact that turns a deployment into reusable patterns.
   does not ship, no matter how good the demo looks.
 - **Field-level error review:** the scorecard names each miss; those drive the
   next iteration.
+- **Threshold sweep:** routing thresholds are tuned against the gold set, and
+  the sweep reports auto-route precision next to decision accuracy, because the
+  two trade off. The chosen setting is a customer decision, recorded with its
+  reasoning.
+- **Retrieval quality:** whether the cited clause is the right one is checked
+  the same way as extraction — against a labelled expectation, not by eye.
 - **Real-data drift:** re-score monthly on a sample of live documents, because
   the distribution of documents changes over time.
 
