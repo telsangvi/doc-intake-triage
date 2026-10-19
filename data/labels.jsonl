@@ -1,0 +1,6 @@
+{"file": "case_001_application.txt", "doc_type": "benefit_application", "decision": "auto_route", "fields": {"applicant_name": "Ramesh Kumar", "date_of_birth": "14/07/1985", "address": "22 Gandhi Road, Pune, Maharashtra 411001", "benefit_type": "Disability Allowance", "monthly_income": "INR 18,500"}}
+{"file": "case_001_medical_letter.txt", "doc_type": "medical_evidence", "decision": "auto_route", "fields": {"patient_name": "Ramesh Kumar", "provider_name": "Dr. A. Sharma", "condition": "Chronic lumbar spine injury"}}
+{"file": "case_002_application.txt", "doc_type": "benefit_application", "decision": "incomplete", "fields": {"applicant_name": "Sunita Devi", "date_of_birth": "02/11/1979", "address": "8 Nehru Nagar, Lucknow, Uttar Pradesh 226001", "benefit_type": "Widow Pension"}}
+{"file": "case_002_id.txt", "doc_type": "id_proof", "decision": "auto_route", "fields": {"full_name": "Sunita Devi", "id_number": "XXXX-4521-8890"}}
+{"file": "case_003_application.txt", "doc_type": "benefit_application", "decision": "human_review", "fields": {"address": "12 MG Road, Nagpur", "benefit_type": "Housing Assistance", "monthly_income": "9,200"}}
+{"file": "case_003_income.txt", "doc_type": "income_proof", "decision": "human_review", "fields": {"income_amount": "22,000", "period": "Monthly"}}

@@ -1,0 +1,13 @@
+# Core runtime (kept deliberately small)
+fastapi>=0.110
+uvicorn>=0.27
+pydantic>=2.6
+pypdf>=4.0
+python-multipart>=0.0.9
+
+# Optional real LLM providers (the app runs fully offline without these)
+# openai>=1.30
+# anthropic>=0.34
+
+# Dev / test
+pytest>=8.0
