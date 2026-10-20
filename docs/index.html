@@ -3,53 +3,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>What We Built — Document Intake Triage</title>
+<title>Document Intake Triage — what it does and how you use it</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --font-body: 'IBM Plex Sans', system-ui, sans-serif;
-    --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'Azeret Mono', 'SF Mono', Consolas, monospace;
 
-    --bg: #eef2f7;
+    --bg: #faf7f5;
     --surface: #ffffff;
-    --surface-2: #f7fafc;
-    --border: rgba(22, 40, 61, 0.10);
-    --grid: rgba(31, 78, 121, 0.07);
-    --text: #16283d;
-    --text-dim: #5a6b80;
+    --surface-2: #f4efea;
+    --border: rgba(60, 40, 25, 0.11);
+    --text: #2c2118;
+    --text-dim: #6f6257;
 
-    --primary: #1f4e79;
-    --primary-dim: rgba(31, 78, 121, 0.09);
-    --gold: #a3690f;
-    --gold-dim: rgba(163, 105, 15, 0.10);
-    --good: #2f7d4f;
-    --good-dim: rgba(47, 125, 79, 0.10);
-    --warn: #a3690f;
-    --bad: #a03a2e;
-    --bad-dim: rgba(160, 58, 46, 0.10);
+    --ready: #4d7c0f;
+    --ready-bg: rgba(77, 124, 15, 0.10);
+    --check: #b45309;
+    --check-bg: rgba(180, 83, 9, 0.11);
+    --missing: #b2301a;
+    --missing-bg: rgba(178, 48, 26, 0.10);
+    --accent: #c2410c;
+    --accent-bg: rgba(194, 65, 12, 0.09);
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0d1622;
-      --surface: #14212f;
-      --surface-2: #18293a;
-      --border: rgba(255, 255, 255, 0.09);
-      --grid: rgba(91, 155, 213, 0.09);
-      --text: #dce7f2;
-      --text-dim: #8ba3bb;
+      --bg: #1a1512;
+      --surface: #241d18;
+      --surface-2: #2c241e;
+      --border: rgba(255, 240, 225, 0.11);
+      --text: #f2e9e1;
+      --text-dim: #b3a396;
 
-      --primary: #5b9bd5;
-      --primary-dim: rgba(91, 155, 213, 0.14);
-      --gold: #d4a73a;
-      --gold-dim: rgba(212, 167, 58, 0.14);
-      --good: #6fae83;
-      --good-dim: rgba(111, 174, 131, 0.14);
-      --warn: #d4a73a;
-      --bad: #e0786a;
-      --bad-dim: rgba(224, 120, 106, 0.14);
+      --ready: #a3c95c;
+      --ready-bg: rgba(163, 201, 92, 0.13);
+      --check: #fbbf24;
+      --check-bg: rgba(251, 191, 36, 0.13);
+      --missing: #fb8b7a;
+      --missing-bg: rgba(251, 139, 122, 0.13);
+      --accent: #fb923c;
+      --accent-bg: rgba(251, 146, 60, 0.13);
     }
   }
 
@@ -57,221 +54,225 @@
 
   body {
     background-color: var(--bg);
-    background-image:
-      linear-gradient(var(--grid) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-    background-size: 34px 34px;
+    background-image: radial-gradient(circle at 12% 0%, var(--accent-bg) 0%, transparent 42%);
+    background-repeat: no-repeat;
     color: var(--text);
     font-family: var(--font-body);
-    padding: 44px 24px 72px;
+    padding: 46px 24px 76px;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
 
   @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(12px); }
+    from { opacity: 0; transform: translateY(13px); }
     to { opacity: 1; transform: translateY(0); }
   }
-  .animate { animation: fadeUp 0.45s ease-out both; animation-delay: calc(var(--i, 0) * 0.07s); }
+  .animate { animation: fadeUp 0.5s cubic-bezier(.2,.7,.3,1) both; animation-delay: calc(var(--i, 0) * 0.07s); }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
-      animation-duration: 0.01ms !important;
-      animation-delay: 0ms !important;
+      animation-duration: 0.01ms !important; animation-delay: 0ms !important;
       transition-duration: 0.01ms !important;
     }
   }
 
-  .container { max-width: 1020px; margin: 0 auto; }
-
-  .section-label {
-    display: flex; align-items: center; gap: 9px;
-    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--text-dim); margin-bottom: 14px;
-  }
-  .section-label::before {
-    content: ''; width: 7px; height: 7px; border-radius: 50%;
-    background: var(--gold); flex: none;
-  }
+  .container { max-width: 960px; margin: 0 auto; }
 
   h1 {
-    font-size: 40px; font-weight: 700; letter-spacing: -1.1px;
-    margin-bottom: 8px; text-wrap: balance; line-height: 1.1;
+    font-family: var(--font-display);
+    font-size: 47px; font-weight: 600; line-height: 1.06;
+    letter-spacing: -1.2px; margin-bottom: 14px; text-wrap: balance;
   }
-  .subtitle {
-    color: var(--text-dim); font-family: var(--font-mono);
-    font-size: 12.5px; margin-bottom: 30px;
-  }
-
   h2 {
-    font-size: 21px; font-weight: 600; letter-spacing: -0.4px;
-    margin-bottom: 6px; text-wrap: balance;
+    font-family: var(--font-display);
+    font-size: 27px; font-weight: 600; line-height: 1.2;
+    letter-spacing: -0.5px; margin-bottom: 8px; text-wrap: balance;
+  }
+  h3 { font-size: 15.5px; font-weight: 600; margin-bottom: 5px; }
+
+  .eyebrow {
+    display: flex; align-items: center; gap: 9px;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 16px;
+  }
+  .eyebrow::before {
+    content: ''; width: 18px; height: 1.5px; background: var(--accent); flex: none;
   }
 
-  .lead {
-    font-size: 15px; line-height: 1.72; color: var(--text-dim);
-    max-width: 720px; margin-bottom: 26px;
+  .standfirst {
+    font-size: 18px; line-height: 1.62; color: var(--text-dim);
+    max-width: 660px; margin-bottom: 30px;
   }
-  .lead strong { color: var(--text); font-weight: 600; }
+  .standfirst strong { color: var(--text); font-weight: 600; }
 
-  section { margin-bottom: 46px; }
+  section { margin-bottom: 58px; }
+  .section-intro {
+    font-size: 15px; line-height: 1.7; color: var(--text-dim);
+    max-width: 660px; margin-bottom: 22px;
+  }
 
-  /* ---- hero strip ---- */
+  /* ---- hero ---- */
   .hero {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--primary);
-    border-radius: 0 14px 14px 0;
-    padding: 22px 26px;
-    margin-bottom: 42px;
-    box-shadow: 0 10px 30px -18px rgba(22, 40, 61, 0.35);
+    border-radius: 18px;
+    padding: 30px 32px;
+    margin-bottom: 52px;
+    box-shadow: 0 24px 50px -34px rgba(60, 40, 25, 0.55);
   }
-  .hero p { font-size: 14.5px; line-height: 1.7; color: var(--text-dim); }
+  .hero p { font-size: 16px; line-height: 1.68; color: var(--text-dim); max-width: 680px; }
+  .hero p + p { margin-top: 13px; }
   .hero strong { color: var(--text); font-weight: 600; }
+  .hero .boundary {
+    display: inline-block; margin-top: 6px; padding: 9px 15px;
+    background: var(--accent-bg); border-radius: 9px;
+    font-size: 14.5px; color: var(--text); font-weight: 500;
+  }
+
+  /* ---- before / after ---- */
+  .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 15px; padding: 22px 24px; min-width: 0;
+  }
+  .panel--before { border-top: 3px solid var(--missing); }
+  .panel--after { border-top: 3px solid var(--ready); }
+  .panel h3 { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--text-dim); font-weight: 500; margin-bottom: 14px; }
+  .panel ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .panel li { font-size: 14.5px; line-height: 1.55; padding-left: 24px; position: relative; color: var(--text-dim); }
+  .panel li::before {
+    position: absolute; left: 0; top: 0.55em; width: 11px; height: 2px;
+    background: var(--text-dim); opacity: 0.5; content: '';
+  }
+  .panel--after li::before { background: var(--ready); opacity: 1; }
+
+  /* ---- steps ---- */
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .step {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 15px; padding: 22px 22px 24px; min-width: 0; position: relative;
+  }
+  .step__num {
+    font-family: var(--font-display); font-size: 34px; font-weight: 600;
+    color: var(--accent); line-height: 1; margin-bottom: 12px; display: block;
+  }
+  .step p { font-size: 14.5px; line-height: 1.6; color: var(--text-dim); }
 
   /* ---- mermaid ---- */
   .diagram-shell { position: relative; }
   .diagram-shell__hint {
     font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
-    margin-bottom: 9px; opacity: 0.75;
+    margin-bottom: 9px; opacity: 0.7;
   }
   .mermaid-wrap {
-    position: relative;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 28px 22px;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 360px;
-    cursor: grab;
+    position: relative; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 26px 20px; overflow: hidden;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 320px; cursor: grab;
   }
   .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
 
   .zoom-controls {
-    position: absolute; top: 8px; right: 8px; display: flex; gap: 2px;
-    z-index: 10; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 6px; padding: 2px;
+    position: absolute; top: 8px; right: 8px; display: flex; gap: 2px; z-index: 10;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 7px; padding: 2px;
   }
   .zoom-controls button {
     width: 27px; height: 27px; border: none; background: transparent;
     color: var(--text-dim); font-family: var(--font-mono); font-size: 13px;
-    cursor: pointer; border-radius: 4px;
+    cursor: pointer; border-radius: 5px;
     display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background .15s ease, color .15s ease;
   }
   .zoom-controls button:hover { background: var(--border); color: var(--text); }
 
-  .mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 300px; }
+  .mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 280px; }
   .mermaid-canvas { position: absolute; top: 0; left: 0; }
-  .zoom-label {
-    font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
-    padding: 0 6px; white-space: nowrap;
-  }
+  .zoom-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); padding: 0 6px; white-space: nowrap; }
 
   .mermaid .nodeLabel { font-family: var(--font-body) !important; font-size: 15px !important; color: var(--text) !important; }
   .mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 12px !important; color: var(--text-dim) !important; background-color: var(--bg) !important; }
   .mermaid .edgeLabel rect { fill: var(--bg) !important; }
   .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { stroke-width: 1.5px !important; }
-  .mermaid .edge-pattern-solid { stroke-width: 1.5px !important; }
+  .mermaid .edge-pattern-solid { stroke-width: 1.6px !important; }
 
-  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 14px; }
-  .legend-item {
-    display: flex; align-items: center; gap: 7px;
-    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
-  }
-  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
-
-  /* ---- cards ---- */
-  .cards {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 14px;
-  }
-  .ve-card {
+  /* ---- outcome cards ---- */
+  .outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .outcome {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 18px 20px; min-width: 0;
+    border-radius: 15px; padding: 22px 22px 24px; min-width: 0;
   }
-  .ve-card h3 {
-    font-size: 14px; font-weight: 600; margin-bottom: 4px;
-    overflow-wrap: break-word;
-  }
-  .ve-card .kicker {
-    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--text-dim); margin-bottom: 9px;
-  }
-  .ve-card p { font-size: 13px; line-height: 1.62; color: var(--text-dim); }
-  .ve-card code {
-    font-family: var(--font-mono); font-size: 11.5px;
-    background: var(--primary-dim); color: var(--primary);
-    padding: 1px 5px; border-radius: 3px; overflow-wrap: break-word;
-  }
-  .ve-card--hero { border-top: 3px solid var(--primary); }
-  .ve-card--gold { border-top: 3px solid var(--gold); }
-  .ve-card--good { border-top: 3px solid var(--good); }
-
-  .stat {
-    font-family: var(--font-mono); font-size: 26px; font-weight: 600;
-    color: var(--primary); line-height: 1.1; margin-bottom: 6px;
-    font-variant-numeric: tabular-nums;
-  }
-  .ve-card--gold .stat { color: var(--gold); }
-  .ve-card--good .stat { color: var(--good); }
-
-  /* ---- table ---- */
-  .table-wrap {
-    overflow-x: auto; border: 1px solid var(--border);
-    border-radius: 12px; background: var(--surface);
-  }
-  table { border-collapse: collapse; width: 100%; min-width: 560px; }
-  thead th {
-    text-align: left; font-family: var(--font-mono); font-size: 10.5px;
-    letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim);
-    font-weight: 500; padding: 13px 16px; border-bottom: 1px solid var(--border);
-    background: var(--surface-2); white-space: nowrap;
-  }
-  tbody td {
-    padding: 13px 16px; font-size: 13.5px; line-height: 1.55;
-    border-bottom: 1px solid var(--border); vertical-align: top;
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr:nth-child(even) { background: var(--surface-2); }
-  td code {
-    font-family: var(--font-mono); font-size: 11.5px;
-    background: var(--primary-dim); color: var(--primary);
-    padding: 1px 5px; border-radius: 3px; overflow-wrap: break-word;
-  }
-  .pill {
+  .outcome--ready { border-top: 3px solid var(--ready); }
+  .outcome--check { border-top: 3px solid var(--check); }
+  .outcome--missing { border-top: 3px solid var(--missing); }
+  .outcome .tag {
     display: inline-block; font-family: var(--font-mono); font-size: 10.5px;
-    padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+    letter-spacing: 0.09em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 999px; margin-bottom: 13px;
   }
-  .pill--done { background: var(--good-dim); color: var(--good); }
-  .pill--note { background: var(--gold-dim); color: var(--gold); }
+  .outcome--ready .tag { background: var(--ready-bg); color: var(--ready); }
+  .outcome--check .tag { background: var(--check-bg); color: var(--check); }
+  .outcome--missing .tag { background: var(--missing-bg); color: var(--missing); }
+  .outcome p { font-size: 14.5px; line-height: 1.62; color: var(--text-dim); }
+  .outcome .youdo {
+    margin-top: 15px; padding-top: 14px; border-top: 1px dashed var(--border);
+    font-size: 14px; color: var(--text);
+  }
+  .outcome .youdo span {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-dim); display: block; margin-bottom: 4px;
+  }
+
+  /* ---- mock queue ---- */
+  .queue { display: flex; flex-direction: column; gap: 12px; }
+  .qitem {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 17px 20px; min-width: 0;
+  }
+  .qitem__top { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; margin-bottom: 9px; }
+  .qitem__file { font-family: var(--font-mono); font-size: 12.5px; color: var(--text); overflow-wrap: break-word; }
+  .qitem .tag {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.09em;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 999px;
+  }
+  .qitem--ready .tag { background: var(--ready-bg); color: var(--ready); }
+  .qitem--check .tag { background: var(--check-bg); color: var(--check); }
+  .qitem--missing .tag { background: var(--missing-bg); color: var(--missing); }
+  .qitem__reason { font-size: 14px; line-height: 1.6; color: var(--text-dim); }
+  .qitem__fields { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+  .chip {
+    font-family: var(--font-mono); font-size: 11px; padding: 3px 9px;
+    border-radius: 6px; background: var(--surface-2); color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
 
   .callout {
     background: var(--surface); border: 1px solid var(--border);
-    border-left: 3px solid var(--gold); border-radius: 0 10px 10px 0;
-    padding: 16px 20px; font-size: 13.5px; line-height: 1.65;
-    color: var(--text-dim); margin-top: 16px;
+    border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0;
+    padding: 18px 22px; font-size: 14.5px; line-height: 1.68;
+    color: var(--text-dim); margin-top: 18px;
   }
   .callout strong { color: var(--text); }
   .callout code {
-    font-family: var(--font-mono); font-size: 11.5px;
-    background: var(--gold-dim); color: var(--gold);
-    padding: 1px 5px; border-radius: 3px;
+    font-family: var(--font-mono); font-size: 12.5px;
+    background: var(--accent-bg); color: var(--accent);
+    padding: 1px 6px; border-radius: 4px; overflow-wrap: break-word;
   }
 
   footer {
-    margin-top: 54px; padding-top: 20px; border-top: 1px solid var(--border);
-    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
-    line-height: 1.9;
+    margin-top: 62px; padding-top: 22px; border-top: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); line-height: 1.95;
   }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
 
   @media (max-width: 768px) {
-    body { padding: 26px 14px 56px; }
-    h1 { font-size: 27px; }
-    h2 { font-size: 18px; }
+    body { padding: 28px 15px 58px; }
+    h1 { font-size: 31px; }
+    h2 { font-size: 22px; }
+    .standfirst { font-size: 16px; }
+    .hero { padding: 22px 20px; }
     .mermaid-wrap { padding: 14px 10px; }
   }
 </style>
@@ -280,26 +281,111 @@
 
 <div class="container">
 
-  <h1 class="animate" style="--i:0">What We Built</h1>
-  <p class="subtitle animate" style="--i:1">document intake triage &middot; a forward-deployed AI engineer practice project</p>
+  <div class="eyebrow animate" style="--i:0">Document Intake Triage</div>
+  <h1 class="animate" style="--i:1">Turn a pile of documents into a queue you can work through</h1>
+  <p class="standfirst animate" style="--i:2">
+    A benefits office gets applications and the papers that come with them. Someone has to read every one,
+    pull out the details, spot what's missing, and decide what to do next. This does that first pass for you.
+  </p>
 
-  <div class="hero animate" style="--i:2">
-    <p><strong>In one line:</strong> a public-benefits office gets piles of messy documents. This system reads each one,
-    pulls out the important fields, checks what's missing, finds the policy rule that applies, and tells a human what to
-    do next &mdash; <strong>automatically route it, send it back, or take a closer look.</strong> It never decides who
-    gets benefits.</p>
+  <div class="hero animate" style="--i:3">
+    <p>You drop in the documents. For each one, the system reads it, pulls out the details that matter,
+    and works out whether it's ready to move on — or needs something first.</p>
+    <p>Then you get one queue, with every item already sorted and labelled with the reason. <strong>You
+    stay in charge of what happens next.</strong></p>
+    <div class="boundary">It sorts and flags. It never decides who gets benefits.</div>
   </div>
 
-  <!-- ============ DIAGRAM 1 ============ -->
+  <!-- ============ BEFORE / AFTER ============ -->
   <section>
-    <div class="section-label animate" style="--i:3">Flow one &middot; a single document</div>
-    <h2 class="animate" style="--i:3">How one document moves through the system</h2>
-    <p class="lead animate" style="--i:3">
-      Five steps, then a decision. The key idea is that a missing field and an unsure field are
-      <strong>different problems</strong> &mdash; one goes back to the applicant, the other to a person.
+    <div class="eyebrow animate" style="--i:4">The problem</div>
+    <h2 class="animate" style="--i:4">What changes</h2>
+    <p class="section-intro animate" style="--i:4">
+      The slow part isn't the decision — it's the reading. Every document has to be opened, understood, and
+      checked before anyone can act on it.
     </p>
 
-    <div class="diagram-shell animate" style="--i:4">
+    <div class="split">
+      <div class="panel panel--before animate" style="--i:5">
+        <h3>Doing it by hand</h3>
+        <ul>
+          <li>Open every document and read it end to end</li>
+          <li>Retype the same details into the case system</li>
+          <li>Notice later that something required was missing</li>
+          <li>The applicant waits while it gets chased</li>
+          <li>Poor scans are a guess — no signal about what's trustworthy</li>
+        </ul>
+      </div>
+      <div class="panel panel--after animate" style="--i:6">
+        <h3>With the queue</h3>
+        <ul>
+          <li>Drop the documents in and walk away</li>
+          <li>Details come out already typed and ready to check</li>
+          <li>Missing fields are caught before anyone reviews the case</li>
+          <li>Every item says what's wrong, in plain words</li>
+          <li>Unclear scans are flagged for a person, not guessed at</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HOW YOU USE IT ============ -->
+  <section>
+    <div class="eyebrow animate" style="--i:7">How you use it</div>
+    <h2 class="animate" style="--i:7">Three steps, then you work the queue</h2>
+
+    <div class="steps" style="margin-bottom: 22px;">
+      <div class="step animate" style="--i:8">
+        <span class="step__num">1</span>
+        <h3>Drop in your documents</h3>
+        <p>Drag in a folder of PDFs or text files — applications, letters, ID proofs, income slips, whatever
+        came in today.</p>
+      </div>
+      <div class="step animate" style="--i:9">
+        <span class="step__num">2</span>
+        <h3>The system reads and sorts them</h3>
+        <p>Each document is read, its details pulled out, and checked against what the policy requires.</p>
+      </div>
+      <div class="step animate" style="--i:10">
+        <span class="step__num">3</span>
+        <h3>You work the queue</h3>
+        <p>Everything comes back sorted. Items that are ready move on; anything missing or unclear is waiting
+        for you with the reason on it.</p>
+      </div>
+    </div>
+
+    <div class="diagram-shell animate" style="--i:11">
+      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit.</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+          <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+          <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+          <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+          <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+          <span class="zoom-label">Loading...</span>
+        </div>
+        <div class="mermaid-viewport">
+          <div class="mermaid mermaid-canvas"></div>
+        </div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+        flowchart LR
+          A["You drop in<br/>the documents"] --> B["The system reads them<br/>and pulls out the details"] --> C["You get a queue<br/>ready to work through"]
+      </script>
+    </div>
+  </section>
+
+  <!-- ============ THE DECISION ============ -->
+  <section>
+    <div class="eyebrow animate" style="--i:12">What happens to each document</div>
+    <h2 class="animate" style="--i:12">One question decides where it goes</h2>
+    <p class="section-intro animate" style="--i:12">
+      For every document, the system asks a single thing: <strong>is everything here, and can it be read
+      clearly?</strong> The answer sends it down one of three paths.
+    </p>
+
+    <div class="diagram-shell animate" style="--i:13">
       <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit.</p>
       <div class="mermaid-wrap">
         <div class="zoom-controls">
@@ -316,161 +402,151 @@
       </div>
       <script type="text/plain" class="diagram-source">
         flowchart TD
-          A["A case document<br/>PDF or text"] --> B["1. Read it<br/>turn it into text"]
-          B --> C["2. Extract<br/>pull out the fields"]
-          C --> D["3. Check it<br/>missing? unsure?"]
-          D --> E["4. Find the rule<br/>which policy applies"]
-          E --> F{"What next?"}
-          F -->|"complete + confident"| G["Auto-route<br/>straight through"]
-          F -->|"a required field is missing"| H["Incomplete<br/>back to the applicant"]
-          F -->|"present, but not trusted"| I["Human review<br/>a person decides"]
-          classDef good fill:#2f7d4f33,stroke:#2f7d4f,stroke-width:1.5px
-          classDef warn fill:#a3690f33,stroke:#a3690f,stroke-width:1.5px
-          classDef bad fill:#a03a2e33,stroke:#a03a2e,stroke-width:1.5px
-          class G good
-          class I warn
-          class H bad
+          A["A document"] --> B{"Is everything there,<br/>and clearly readable?"}
+          B -->|"Yes, all of it"| C["Ready to process"]
+          B -->|"Something required is missing"| D["Ask the applicant"]
+          B -->|"It's there but unclear"| E["Needs a person"]
+          C --> F["All three land in the<br/>same queue, each labelled"]
+          D --> F
+          E --> F
+          classDef ready fill:#4d7c0f2e,stroke:#4d7c0f,stroke-width:1.6px
+          classDef check fill:#b453092e,stroke:#b45309,stroke-width:1.6px
+          classDef missing fill:#b2301a2e,stroke:#b2301a,stroke-width:1.6px
+          class C ready
+          class E check
+          class D missing
       </script>
-    </div>
-
-    <div class="legend animate" style="--i:5">
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--good)"></div> Complete &amp; confident</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--warn)"></div> Needs a human</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--bad)"></div> Missing something</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--primary)"></div> Processing step</div>
     </div>
   </section>
 
-  <!-- ============ DIAGRAM 2 ============ -->
+  <!-- ============ THE THREE OUTCOMES ============ -->
   <section>
-    <div class="section-label animate" style="--i:6">Flow two &middot; what I did</div>
-    <h2 class="animate" style="--i:6">How the work grew, in the order it happened</h2>
-    <p class="lead animate" style="--i:6">
-      Each step was added on top of the one before it, and each one was tested before moving on.
+    <div class="eyebrow animate" style="--i:14">The three outcomes</div>
+    <h2 class="animate" style="--i:14">What each one means for you</h2>
+
+    <div class="outcomes">
+      <div class="outcome outcome--ready animate" style="--i:15">
+        <span class="tag">Ready to process</span>
+        <p>Everything the policy asks for is present, and the system read it clearly. Nothing is in doubt.</p>
+        <div class="youdo"><span>What you do</span>Move it on. It doesn't need a second pair of eyes.</div>
+      </div>
+      <div class="outcome outcome--missing animate" style="--i:16">
+        <span class="tag">Ask the applicant</span>
+        <p>A required detail isn't in the document at all — the form is blank where it should say something.</p>
+        <div class="youdo"><span>What you do</span>Send it back. The system names exactly what's missing, so the request is specific.</div>
+      </div>
+      <div class="outcome outcome--check animate" style="--i:17">
+        <span class="tag">Needs a person</span>
+        <p>The detail is there, but it can't be trusted — a bad scan, handwriting, or placeholder text where a
+        value should be.</p>
+        <div class="youdo"><span>What you do</span>Check it yourself. The system won't guess when it isn't sure.</div>
+      </div>
+    </div>
+
+    <div class="callout animate" style="--i:18">
+      <strong>Why the last two are kept apart.</strong> A missing field is a problem with the applicant's
+      paperwork — it goes back to them. An unclear field is a problem with the document — it goes to you.
+      Treating those as the same thing is how systems end up either nagging applicants for things they already
+      sent, or quietly guessing at values nobody can read.
+    </div>
+  </section>
+
+  <!-- ============ WHAT YOU SEE ============ -->
+  <section>
+    <div class="eyebrow animate" style="--i:19">What the queue looks like</div>
+    <h2 class="animate" style="--i:19">Three real examples</h2>
+    <p class="section-intro animate" style="--i:19">
+      This is the actual output from the sample documents that ship with the project — a clean application, one
+      with a blank field, and one poor scan.
     </p>
 
-    <div class="diagram-shell animate" style="--i:7">
-      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit.</p>
-      <div class="mermaid-wrap">
-        <div class="zoom-controls">
-          <button type="button" data-action="zoom-in" title="Zoom in">+</button>
-          <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
-          <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
-          <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
-          <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
-          <span class="zoom-label">Loading...</span>
+    <div class="queue">
+      <div class="qitem qitem--ready animate" style="--i:20">
+        <div class="qitem__top">
+          <span class="qitem__file">case_001_application.txt</span>
+          <span class="tag">Ready to process</span>
         </div>
-        <div class="mermaid-viewport">
-          <div class="mermaid mermaid-canvas"></div>
+        <div class="qitem__reason">Everything required is present and was read clearly. No action needed.</div>
+        <div class="qitem__fields">
+          <span class="chip">name: Ramesh Kumar</span>
+          <span class="chip">dob: 14/07/1985</span>
+          <span class="chip">benefit: Disability Allowance</span>
+          <span class="chip">income: INR 18,500</span>
         </div>
       </div>
-      <script type="text/plain" class="diagram-source">
-        flowchart TD
-          A["1. Built the pipeline<br/>read, extract, check, route"] --> B["2. Added evals<br/>score against a gold set"]
-          B --> C["3. Pushed to GitHub<br/>private repo"]
-          C --> D["4. Added RAG<br/>cite the policy clause"]
-          D --> E["5. Added tuning<br/>threshold sweep + dataset export"]
-          E --> F["6. Added containers + CI<br/>Docker and GitHub Actions"]
-          F --> G["7. Added a real vector store<br/>Supabase + pgvector"]
-          classDef good fill:#2f7d4f33,stroke:#2f7d4f,stroke-width:1.5px
-          class G good
-      </script>
+
+      <div class="qitem qitem--missing animate" style="--i:21">
+        <div class="qitem__top">
+          <span class="qitem__file">case_002_application.txt</span>
+          <span class="tag">Ask the applicant</span>
+        </div>
+        <div class="qitem__reason">Monthly household income is blank on the form. This is required, so the
+        case goes back with a request for it.</div>
+        <div class="qitem__fields">
+          <span class="chip">name: Sunita Devi</span>
+          <span class="chip">benefit: Widow Pension</span>
+          <span class="chip">missing: monthly income</span>
+        </div>
+      </div>
+
+      <div class="qitem qitem--check animate" style="--i:22">
+        <div class="qitem__top">
+          <span class="qitem__file">case_003_application.txt</span>
+          <span class="tag">Needs a person</span>
+        </div>
+        <div class="qitem__reason">The scan is poor — the name reads "???" and the date of birth says
+        "unclear". Rather than guess, it's flagged for you.</div>
+        <div class="qitem__fields">
+          <span class="chip">name: ??? (unreadable)</span>
+          <span class="chip">dob: unclear</span>
+          <span class="chip">benefit: Housing Assistance</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout animate" style="--i:23">
+      <strong>Every item can explain itself.</strong> Alongside the reason, each item records which rule it
+      applied — so if someone asks <em>"why did this go back?"</em> six months later, the answer is on the
+      record, not in someone's memory.
     </div>
   </section>
 
-  <!-- ============ CARDS ============ -->
+  <!-- ============ BOUNDARY ============ -->
   <section>
-    <div class="section-label animate" style="--i:8">Where things live</div>
-    <h2 class="animate" style="--i:8">Three places, three jobs</h2>
+    <div class="eyebrow animate" style="--i:24">Where it stops</div>
+    <h2 class="animate" style="--i:24">What it will not do</h2>
+    <p class="section-intro animate" style="--i:24">
+      This matters more than any feature. The system reads, sorts, and flags. Everything else stays with people.
+    </p>
 
-    <div class="cards">
-      <div class="ve-card ve-card--hero animate" style="--i:9">
-        <div class="kicker">Code</div>
-        <h3>GitHub</h3>
-        <p>A private repo, <code>doc-intake-triage</code>. This is the source of truth &mdash; everything below can be
-        rebuilt from it.</p>
+    <div class="split">
+      <div class="panel panel--before animate" style="--i:25">
+        <h3>It will not</h3>
+        <ul>
+          <li>Decide whether anyone gets benefits</li>
+          <li>Score, rank, or judge an applicant</li>
+          <li>Reject a case for missing paperwork</li>
+          <li>Invent a value it couldn't read</li>
+          <li>Overrule a caseworker's judgement</li>
+        </ul>
       </div>
-      <div class="ve-card ve-card--gold animate" style="--i:10">
-        <div class="kicker">Vector store</div>
-        <h3>Supabase</h3>
-        <p>A <code>triage</code> schema in <code>matrisetu-test</code>, holding the policy passages as vectors so
-        decisions can cite the rule they used.</p>
+      <div class="panel panel--after animate" style="--i:26">
+        <h3>It will</h3>
+        <ul>
+          <li>Read every document the same way, every time</li>
+          <li>Say plainly what it found and what it couldn't</li>
+          <li>Hand anything uncertain to a person</li>
+          <li>Keep a record of which rule it applied</li>
+          <li>Get out of the way when you know better</li>
+        </ul>
       </div>
-      <div class="ve-card ve-card--good animate" style="--i:11">
-        <div class="kicker">Readables</div>
-        <h3>Project brief</h3>
-        <p>The plan document, written as an engagement: the customer, the metrics, the risks, the demo script.</p>
-      </div>
-    </div>
-
-    <div class="callout animate" style="--i:12">
-      <strong>Nothing needs an API key.</strong> The whole project runs offline with a stand-in model and a stand-in
-      embedder, so you can develop without spending anything or touching a real account. Swapping in a real model or a
-      real embedder is a config change, not a rewrite.
     </div>
   </section>
 
-  <!-- ============ TABLE ============ -->
-  <section>
-    <div class="section-label animate" style="--i:13">At a glance</div>
-    <h2 class="animate" style="--i:13">What's where, and its state</h2>
-
-    <div class="table-wrap animate" style="--i:14">
-      <table>
-        <thead>
-          <tr><th>Thing</th><th>Where</th><th>State</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Document pipeline</td>
-            <td>GitHub &middot; <code>src/</code></td>
-            <td><span class="pill pill--done">verified</span></td>
-          </tr>
-          <tr>
-            <td>Eval harness + gold set</td>
-            <td>GitHub &middot; <code>src/evals.py</code></td>
-            <td><span class="pill pill--done">100% on samples</span></td>
-          </tr>
-          <tr>
-            <td>Policy retrieval (RAG)</td>
-            <td>GitHub &middot; <code>src/retrieve.py</code></td>
-            <td><span class="pill pill--done">verified</span></td>
-          </tr>
-          <tr>
-            <td>Tuning + fine-tune export</td>
-            <td>GitHub &middot; <code>src/tuning.py</code></td>
-            <td><span class="pill pill--note">dataset only, no job launched</span></td>
-          </tr>
-          <tr>
-            <td>Containers + CI</td>
-            <td>GitHub &middot; <code>Dockerfile</code>, <code>.github/</code></td>
-            <td><span class="pill pill--note">not built here &mdash; no Docker in my sandbox</span></td>
-          </tr>
-          <tr>
-            <td>Vector store</td>
-            <td>Supabase &middot; <code>triage</code> schema</td>
-            <td><span class="pill pill--done">13 passages loaded, search verified</span></td>
-          </tr>
-          <tr>
-            <td>App &rarr; database hop</td>
-            <td>Your machine</td>
-            <td><span class="pill pill--note">needs your connection string</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="callout animate" style="--i:15">
-      <strong>The one thing I couldn't finish.</strong> Everything on the database side is live and tested. The last
-      hop &mdash; the Python app connecting to Supabase &mdash; needs your database password, which I won't put in a
-      command or a chat message. One command on your machine closes it: set <code>SUPABASE_DB_URL</code> and run
-      <code>python -m src.cli retrieve "income evidence"</code>.
-    </div>
-  </section>
-
-  <footer class="animate" style="--i:16">
-    Document Intake Triage &middot; forward-deployed AI engineer practice project<br>
-    GitHub: telsangvi/doc-intake-triage &middot; Supabase: triage schema &middot; runs offline by default
+  <footer class="animate" style="--i:27">
+    Document Intake Triage &middot; a working prototype built as a forward-deployed AI engineer practice project<br>
+    Try it: <a href="https://github.com/telsangvi/doc-intake-triage">github.com/telsangvi/doc-intake-triage</a>
+    &middot; runs on your own machine, no accounts or API keys needed
   </footer>
 
 </div>
@@ -479,17 +555,9 @@
   import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 
   const config = {
-    fitPadding: 26,
-    minHeight: 340,
-    maxHeightPx: 900,
-    maxHeightVh: 0.82,
-    maxInitialZoom: 1.5,
-    minZoom: 0.1,
-    maxZoom: 6.5,
-    zoomStep: 0.14,
-    readabilityFloor: 0.6
+    fitPadding: 26, minHeight: 300, maxHeightPx: 880, maxHeightVh: 0.82,
+    maxInitialZoom: 1.5, minZoom: 0.1, maxZoom: 6.5, zoomStep: 0.14, readabilityFloor: 0.6
   };
-
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   let activeDrag = null;
 
@@ -502,23 +570,23 @@
     startOnLoad: false,
     theme: 'base',
     look: 'classic',
-    flowchart: { curve: 'basis', nodeSpacing: 46, rankSpacing: 46, useMaxWidth: false },
+    flowchart: { curve: 'basis', nodeSpacing: 44, rankSpacing: 50, useMaxWidth: false },
     themeVariables: {
-      fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+      fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
       fontSize: '15px',
-      primaryColor: isDark ? '#1b3a56' : '#dbe7f3',
-      primaryBorderColor: isDark ? '#5b9bd5' : '#1f4e79',
-      primaryTextColor: isDark ? '#dce7f2' : '#16283d',
-      secondaryColor: isDark ? '#3d3218' : '#fbf1da',
-      secondaryBorderColor: isDark ? '#d4a73a' : '#a3690f',
-      secondaryTextColor: isDark ? '#dce7f2' : '#16283d',
-      tertiaryColor: isDark ? '#1e3324' : '#e4f0e8',
-      tertiaryBorderColor: isDark ? '#6fae83' : '#2f7d4f',
-      tertiaryTextColor: isDark ? '#dce7f2' : '#16283d',
-      lineColor: isDark ? '#7b8ea3' : '#8fa3b8',
-      noteBkgColor: isDark ? '#1b3a56' : '#fbf1da',
-      noteTextColor: isDark ? '#dce7f2' : '#16283d',
-      noteBorderColor: isDark ? '#d4a73a' : '#a3690f'
+      primaryColor: isDark ? '#3a2c22' : '#f3ebe4',
+      primaryBorderColor: isDark ? '#fb923c' : '#c2410c',
+      primaryTextColor: isDark ? '#f2e9e1' : '#2c2118',
+      secondaryColor: isDark ? '#3a2c22' : '#f3ebe4',
+      secondaryBorderColor: isDark ? '#b3a396' : '#8a7a6d',
+      secondaryTextColor: isDark ? '#f2e9e1' : '#2c2118',
+      tertiaryColor: isDark ? '#3a2c22' : '#f3ebe4',
+      tertiaryBorderColor: isDark ? '#b3a396' : '#8a7a6d',
+      tertiaryTextColor: isDark ? '#f2e9e1' : '#2c2118',
+      lineColor: isDark ? '#8a7a6d' : '#b3a396',
+      noteBkgColor: isDark ? '#3a2c22' : '#f3ebe4',
+      noteTextColor: isDark ? '#f2e9e1' : '#2c2118',
+      noteBorderColor: isDark ? '#fb923c' : '#c2410c'
     }
   });
 
@@ -563,8 +631,7 @@
       let z = contain, mode = 'contain';
       if (contain < config.readabilityFloor) {
         const chartR = svgH / svgW, vpR = vpH / Math.max(vpW, 1);
-        if (chartR >= vpR) { z = aW / svgW; mode = 'width'; }
-        else { z = aH / svgH; mode = 'height'; }
+        if (chartR >= vpR) { z = aW / svgW; mode = 'width'; } else { z = aH / svgH; mode = 'height'; }
       }
       return { zoom: clamp(z, config.minZoom, config.maxInitialZoom), mode };
     }
@@ -618,7 +685,7 @@
       if (!svg) return;
       const clone = svg.cloneNode(true);
       clone.style.width = ''; clone.style.height = '';
-      const bg = isDark ? '#0d1622' : '#eef2f7';
+      const bg = isDark ? '#1a1512' : '#faf7f5';
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Diagram</title><style>
