@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What We Built — Document Intake Triage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+
+    --bg: #eef2f7;
+    --surface: #ffffff;
+    --surface-2: #f7fafc;
+    --border: rgba(22, 40, 61, 0.10);
+    --grid: rgba(31, 78, 121, 0.07);
+    --text: #16283d;
+    --text-dim: #5a6b80;
+
+    --primary: #1f4e79;
+    --primary-dim: rgba(31, 78, 121, 0.09);
+    --gold: #a3690f;
+    --gold-dim: rgba(163, 105, 15, 0.10);
+    --good: #2f7d4f;
+    --good-dim: rgba(47, 125, 79, 0.10);
+    --warn: #a3690f;
+    --bad: #a03a2e;
+    --bad-dim: rgba(160, 58, 46, 0.10);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1622;
+      --surface: #14212f;
+      --surface-2: #18293a;
+      --border: rgba(255, 255, 255, 0.09);
+      --grid: rgba(91, 155, 213, 0.09);
+      --text: #dce7f2;
+      --text-dim: #8ba3bb;
+
+      --primary: #5b9bd5;
+      --primary-dim: rgba(91, 155, 213, 0.14);
+      --gold: #d4a73a;
+      --gold-dim: rgba(212, 167, 58, 0.14);
+      --good: #6fae83;
+      --good-dim: rgba(111, 174, 131, 0.14);
+      --warn: #d4a73a;
+      --bad: #e0786a;
+      --bad-dim: rgba(224, 120, 106, 0.14);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 34px 34px;
+    color: var(--text);
+    font-family: var(--font-body);
+    padding: 44px 24px 72px;
+    min-height: 100vh;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate { animation: fadeUp 0.45s ease-out both; animation-delay: calc(var(--i, 0) * 0.07s); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  .container { max-width: 1020px; margin: 0 auto; }
+
+  .section-label {
+    display: flex; align-items: center; gap: 9px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 14px;
+  }
+  .section-label::before {
+    content: ''; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--gold); flex: none;
+  }
+
+  h1 {
+    font-size: 40px; font-weight: 700; letter-spacing: -1.1px;
+    margin-bottom: 8px; text-wrap: balance; line-height: 1.1;
+  }
+  .subtitle {
+    color: var(--text-dim); font-family: var(--font-mono);
+    font-size: 12.5px; margin-bottom: 30px;
+  }
+
+  h2 {
+    font-size: 21px; font-weight: 600; letter-spacing: -0.4px;
+    margin-bottom: 6px; text-wrap: balance;
+  }
+
+  .lead {
+    font-size: 15px; line-height: 1.72; color: var(--text-dim);
+    max-width: 720px; margin-bottom: 26px;
+  }
+  .lead strong { color: var(--text); font-weight: 600; }
+
+  section { margin-bottom: 46px; }
+
+  /* ---- hero strip ---- */
+  .hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 14px 14px 0;
+    padding: 22px 26px;
+    margin-bottom: 42px;
+    box-shadow: 0 10px 30px -18px rgba(22, 40, 61, 0.35);
+  }
+  .hero p { font-size: 14.5px; line-height: 1.7; color: var(--text-dim); }
+  .hero strong { color: var(--text); font-weight: 600; }
+
+  /* ---- mermaid ---- */
+  .diagram-shell { position: relative; }
+  .diagram-shell__hint {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+    margin-bottom: 9px; opacity: 0.75;
+  }
+  .mermaid-wrap {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 22px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 360px;
+    cursor: grab;
+  }
+  .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+
+  .zoom-controls {
+    position: absolute; top: 8px; right: 8px; display: flex; gap: 2px;
+    z-index: 10; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px;
+  }
+  .zoom-controls button {
+    width: 27px; height: 27px; border: none; background: transparent;
+    color: var(--text-dim); font-family: var(--font-mono); font-size: 13px;
+    cursor: pointer; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .zoom-controls button:hover { background: var(--border); color: var(--text); }
+
+  .mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 300px; }
+  .mermaid-canvas { position: absolute; top: 0; left: 0; }
+  .zoom-label {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+    padding: 0 6px; white-space: nowrap;
+  }
+
+  .mermaid .nodeLabel { font-family: var(--font-body) !important; font-size: 15px !important; color: var(--text) !important; }
+  .mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 12px !important; color: var(--text-dim) !important; background-color: var(--bg) !important; }
+  .mermaid .edgeLabel rect { fill: var(--bg) !important; }
+  .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { stroke-width: 1.5px !important; }
+  .mermaid .edge-pattern-solid { stroke-width: 1.5px !important; }
+
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 14px; }
+  .legend-item {
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+  }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+  /* ---- cards ---- */
+  .cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+  }
+  .ve-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px; min-width: 0;
+  }
+  .ve-card h3 {
+    font-size: 14px; font-weight: 600; margin-bottom: 4px;
+    overflow-wrap: break-word;
+  }
+  .ve-card .kicker {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 9px;
+  }
+  .ve-card p { font-size: 13px; line-height: 1.62; color: var(--text-dim); }
+  .ve-card code {
+    font-family: var(--font-mono); font-size: 11.5px;
+    background: var(--primary-dim); color: var(--primary);
+    padding: 1px 5px; border-radius: 3px; overflow-wrap: break-word;
+  }
+  .ve-card--hero { border-top: 3px solid var(--primary); }
+  .ve-card--gold { border-top: 3px solid var(--gold); }
+  .ve-card--good { border-top: 3px solid var(--good); }
+
+  .stat {
+    font-family: var(--font-mono); font-size: 26px; font-weight: 600;
+    color: var(--primary); line-height: 1.1; margin-bottom: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .ve-card--gold .stat { color: var(--gold); }
+  .ve-card--good .stat { color: var(--good); }
+
+  /* ---- table ---- */
+  .table-wrap {
+    overflow-x: auto; border: 1px solid var(--border);
+    border-radius: 12px; background: var(--surface);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; }
+  thead th {
+    text-align: left; font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim);
+    font-weight: 500; padding: 13px 16px; border-bottom: 1px solid var(--border);
+    background: var(--surface-2); white-space: nowrap;
+  }
+  tbody td {
+    padding: 13px 16px; font-size: 13.5px; line-height: 1.55;
+    border-bottom: 1px solid var(--border); vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(even) { background: var(--surface-2); }
+  td code {
+    font-family: var(--font-mono); font-size: 11.5px;
+    background: var(--primary-dim); color: var(--primary);
+    padding: 1px 5px; border-radius: 3px; overflow-wrap: break-word;
+  }
+  .pill {
+    display: inline-block; font-family: var(--font-mono); font-size: 10.5px;
+    padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .pill--done { background: var(--good-dim); color: var(--good); }
+  .pill--note { background: var(--gold-dim); color: var(--gold); }
+
+  .callout {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--gold); border-radius: 0 10px 10px 0;
+    padding: 16px 20px; font-size: 13.5px; line-height: 1.65;
+    color: var(--text-dim); margin-top: 16px;
+  }
+  .callout strong { color: var(--text); }
+  .callout code {
+    font-family: var(--font-mono); font-size: 11.5px;
+    background: var(--gold-dim); color: var(--gold);
+    padding: 1px 5px; border-radius: 3px;
+  }
+
+  footer {
+    margin-top: 54px; padding-top: 20px; border-top: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+    line-height: 1.9;
+  }
+
+  @media (max-width: 768px) {
+    body { padding: 26px 14px 56px; }
+    h1 { font-size: 27px; }
+    h2 { font-size: 18px; }
+    .mermaid-wrap { padding: 14px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <h1 class="animate" style="--i:0">What We Built</h1>
+  <p class="subtitle animate" style="--i:1">document intake triage &middot; a forward-deployed AI engineer practice project</p>
+
+  <div class="hero animate" style="--i:2">
+    <p><strong>In one line:</strong> a public-benefits office gets piles of messy documents. This system reads each one,
+    pulls out the important fields, checks what's missing, finds the policy rule that applies, and tells a human what to
+    do next &mdash; <strong>automatically route it, send it back, or take a closer look.</strong> It never decides who
+    gets benefits.</p>
+  </div>
+
+  <!-- ============ DIAGRAM 1 ============ -->
+  <section>
+    <div class="section-label animate" style="--i:3">Flow one &middot; a single document</div>
+    <h2 class="animate" style="--i:3">How one document moves through the system</h2>
+    <p class="lead animate" style="--i:3">
+      Five steps, then a decision. The key idea is that a missing field and an unsure field are
+      <strong>different problems</strong> &mdash; one goes back to the applicant, the other to a person.
+    </p>
+
+    <div class="diagram-shell animate" style="--i:4">
+      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit.</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+          <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+          <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+          <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+          <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+          <span class="zoom-label">Loading...</span>
+        </div>
+        <div class="mermaid-viewport">
+          <div class="mermaid mermaid-canvas"></div>
+        </div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+        flowchart TD
+          A["A case document<br/>PDF or text"] --> B["1. Read it<br/>turn it into text"]
+          B --> C["2. Extract<br/>pull out the fields"]
+          C --> D["3. Check it<br/>missing? unsure?"]
+          D --> E["4. Find the rule<br/>which policy applies"]
+          E --> F{"What next?"}
+          F -->|"complete + confident"| G["Auto-route<br/>straight through"]
+          F -->|"a required field is missing"| H["Incomplete<br/>back to the applicant"]
+          F -->|"present, but not trusted"| I["Human review<br/>a person decides"]
+          classDef good fill:#2f7d4f33,stroke:#2f7d4f,stroke-width:1.5px
+          classDef warn fill:#a3690f33,stroke:#a3690f,stroke-width:1.5px
+          classDef bad fill:#a03a2e33,stroke:#a03a2e,stroke-width:1.5px
+          class G good
+          class I warn
+          class H bad
+      </script>
+    </div>
+
+    <div class="legend animate" style="--i:5">
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--good)"></div> Complete &amp; confident</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--warn)"></div> Needs a human</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--bad)"></div> Missing something</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--primary)"></div> Processing step</div>
+    </div>
+  </section>
+
+  <!-- ============ DIAGRAM 2 ============ -->
+  <section>
+    <div class="section-label animate" style="--i:6">Flow two &middot; what I did</div>
+    <h2 class="animate" style="--i:6">How the work grew, in the order it happened</h2>
+    <p class="lead animate" style="--i:6">
+      Each step was added on top of the one before it, and each one was tested before moving on.
+    </p>
+
+    <div class="diagram-shell animate" style="--i:7">
+      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit.</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+          <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+          <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+          <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+          <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+          <span class="zoom-label">Loading...</span>
+        </div>
+        <div class="mermaid-viewport">
+          <div class="mermaid mermaid-canvas"></div>
+        </div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+        flowchart TD
+          A["1. Built the pipeline<br/>read, extract, check, route"] --> B["2. Added evals<br/>score against a gold set"]
+          B --> C["3. Pushed to GitHub<br/>private repo"]
+          C --> D["4. Added RAG<br/>cite the policy clause"]
+          D --> E["5. Added tuning<br/>threshold sweep + dataset export"]
+          E --> F["6. Added containers + CI<br/>Docker and GitHub Actions"]
+          F --> G["7. Added a real vector store<br/>Supabase + pgvector"]
+          classDef good fill:#2f7d4f33,stroke:#2f7d4f,stroke-width:1.5px
+          class G good
+      </script>
+    </div>
+  </section>
+
+  <!-- ============ CARDS ============ -->
+  <section>
+    <div class="section-label animate" style="--i:8">Where things live</div>
+    <h2 class="animate" style="--i:8">Three places, three jobs</h2>
+
+    <div class="cards">
+      <div class="ve-card ve-card--hero animate" style="--i:9">
+        <div class="kicker">Code</div>
+        <h3>GitHub</h3>
+        <p>A private repo, <code>doc-intake-triage</code>. This is the source of truth &mdash; everything below can be
+        rebuilt from it.</p>
+      </div>
+      <div class="ve-card ve-card--gold animate" style="--i:10">
+        <div class="kicker">Vector store</div>
+        <h3>Supabase</h3>
+        <p>A <code>triage</code> schema in <code>matrisetu-test</code>, holding the policy passages as vectors so
+        decisions can cite the rule they used.</p>
+      </div>
+      <div class="ve-card ve-card--good animate" style="--i:11">
+        <div class="kicker">Readables</div>
+        <h3>Project brief</h3>
+        <p>The plan document, written as an engagement: the customer, the metrics, the risks, the demo script.</p>
+      </div>
+    </div>
+
+    <div class="callout animate" style="--i:12">
+      <strong>Nothing needs an API key.</strong> The whole project runs offline with a stand-in model and a stand-in
+      embedder, so you can develop without spending anything or touching a real account. Swapping in a real model or a
+      real embedder is a config change, not a rewrite.
+    </div>
+  </section>
+
+  <!-- ============ TABLE ============ -->
+  <section>
+    <div class="section-label animate" style="--i:13">At a glance</div>
+    <h2 class="animate" style="--i:13">What's where, and its state</h2>
+
+    <div class="table-wrap animate" style="--i:14">
+      <table>
+        <thead>
+          <tr><th>Thing</th><th>Where</th><th>State</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Document pipeline</td>
+            <td>GitHub &middot; <code>src/</code></td>
+            <td><span class="pill pill--done">verified</span></td>
+          </tr>
+          <tr>
+            <td>Eval harness + gold set</td>
+            <td>GitHub &middot; <code>src/evals.py</code></td>
+            <td><span class="pill pill--done">100% on samples</span></td>
+          </tr>
+          <tr>
+            <td>Policy retrieval (RAG)</td>
+            <td>GitHub &middot; <code>src/retrieve.py</code></td>
+            <td><span class="pill pill--done">verified</span></td>
+          </tr>
+          <tr>
+            <td>Tuning + fine-tune export</td>
+            <td>GitHub &middot; <code>src/tuning.py</code></td>
+            <td><span class="pill pill--note">dataset only, no job launched</span></td>
+          </tr>
+          <tr>
+            <td>Containers + CI</td>
+            <td>GitHub &middot; <code>Dockerfile</code>, <code>.github/</code></td>
+            <td><span class="pill pill--note">not built here &mdash; no Docker in my sandbox</span></td>
+          </tr>
+          <tr>
+            <td>Vector store</td>
+            <td>Supabase &middot; <code>triage</code> schema</td>
+            <td><span class="pill pill--done">13 passages loaded, search verified</span></td>
+          </tr>
+          <tr>
+            <td>App &rarr; database hop</td>
+            <td>Your machine</td>
+            <td><span class="pill pill--note">needs your connection string</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout animate" style="--i:15">
+      <strong>The one thing I couldn't finish.</strong> Everything on the database side is live and tested. The last
+      hop &mdash; the Python app connecting to Supabase &mdash; needs your database password, which I won't put in a
+      command or a chat message. One command on your machine closes it: set <code>SUPABASE_DB_URL</code> and run
+      <code>python -m src.cli retrieve "income evidence"</code>.
+    </div>
+  </section>
+
+  <footer class="animate" style="--i:16">
+    Document Intake Triage &middot; forward-deployed AI engineer practice project<br>
+    GitHub: telsangvi/doc-intake-triage &middot; Supabase: triage schema &middot; runs offline by default
+  </footer>
+
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  const config = {
+    fitPadding: 26,
+    minHeight: 340,
+    maxHeightPx: 900,
+    maxHeightVh: 0.82,
+    maxInitialZoom: 1.5,
+    minZoom: 0.1,
+    maxZoom: 6.5,
+    zoomStep: 0.14,
+    readabilityFloor: 0.6
+  };
+
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  let activeDrag = null;
+
+  addEventListener('mousemove', (e) => activeDrag?.onMove(e));
+  addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    look: 'classic',
+    flowchart: { curve: 'basis', nodeSpacing: 46, rankSpacing: 46, useMaxWidth: false },
+    themeVariables: {
+      fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+      fontSize: '15px',
+      primaryColor: isDark ? '#1b3a56' : '#dbe7f3',
+      primaryBorderColor: isDark ? '#5b9bd5' : '#1f4e79',
+      primaryTextColor: isDark ? '#dce7f2' : '#16283d',
+      secondaryColor: isDark ? '#3d3218' : '#fbf1da',
+      secondaryBorderColor: isDark ? '#d4a73a' : '#a3690f',
+      secondaryTextColor: isDark ? '#dce7f2' : '#16283d',
+      tertiaryColor: isDark ? '#1e3324' : '#e4f0e8',
+      tertiaryBorderColor: isDark ? '#6fae83' : '#2f7d4f',
+      tertiaryTextColor: isDark ? '#dce7f2' : '#16283d',
+      lineColor: isDark ? '#7b8ea3' : '#8fa3b8',
+      noteBkgColor: isDark ? '#1b3a56' : '#fbf1da',
+      noteTextColor: isDark ? '#dce7f2' : '#16283d',
+      noteBorderColor: isDark ? '#d4a73a' : '#a3690f'
+    }
+  });
+
+  function initDiagram(shell) {
+    const wrap = shell.querySelector('.mermaid-wrap');
+    const viewport = shell.querySelector('.mermaid-viewport');
+    const canvas = shell.querySelector('.mermaid-canvas');
+    const source = shell.querySelector('.diagram-source');
+    const label = shell.querySelector('.zoom-label');
+    if (!wrap || !viewport || !canvas || !source || !label) return;
+
+    let zoom = 1, fitMode = 'contain', panX = 0, panY = 0, svgW = 0, svgH = 0;
+    let sx = 0, sy = 0, spx = 0, spy = 0;
+
+    function constrainPan() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const rW = svgW * zoom, rH = svgH * zoom, pad = config.fitPadding;
+      panX = (rW + pad * 2 <= vpW) ? (vpW - rW) / 2 : clamp(panX, vpW - rW - pad, pad);
+      panY = (rH + pad * 2 <= vpH) ? (vpH - rH) / 2 : clamp(panY, vpH - rH - pad, pad);
+    }
+
+    function applyTransform() {
+      const svg = canvas.querySelector('svg');
+      if (!svg || !svgW) return;
+      constrainPan();
+      svg.style.width = (svgW * zoom) + 'px';
+      svg.style.height = (svgH * zoom) + 'px';
+      canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+      label.textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function canPan() {
+      return svgW * zoom + config.fitPadding * 2 > viewport.clientWidth
+          || svgH * zoom + config.fitPadding * 2 > viewport.clientHeight;
+    }
+
+    function computeSmartFit() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const aW = Math.max(80, vpW - config.fitPadding * 2);
+      const aH = Math.max(80, vpH - config.fitPadding * 2);
+      const contain = Math.min(aW / svgW, aH / svgH);
+      let z = contain, mode = 'contain';
+      if (contain < config.readabilityFloor) {
+        const chartR = svgH / svgW, vpR = vpH / Math.max(vpW, 1);
+        if (chartR >= vpR) { z = aW / svgW; mode = 'width'; }
+        else { z = aH / svgH; mode = 'height'; }
+      }
+      return { zoom: clamp(z, config.minZoom, config.maxInitialZoom), mode };
+    }
+
+    function fitDiagram() {
+      if (!svgW) return;
+      const fit = computeSmartFit();
+      zoom = fit.zoom; fitMode = fit.mode;
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+
+    function setOneToOne() {
+      zoom = clamp(1, config.minZoom, config.maxZoom); fitMode = '1:1';
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+
+    function zoomAround(factor, cx, cy) {
+      const next = clamp(zoom * factor, config.minZoom, config.maxZoom);
+      const ratio = next / zoom;
+      panX = cx - ratio * (cx - panX);
+      panY = cy - ratio * (cy - panY);
+      zoom = next; fitMode = 'custom';
+      applyTransform();
+    }
+
+    function readSvgNaturalSize(svg) {
+      let w = 0, h = 0;
+      if (svg.viewBox?.baseVal?.width > 0) { w = svg.viewBox.baseVal.width; h = svg.viewBox.baseVal.height; }
+      if (!w) { w = parseFloat(svg.getAttribute('width')) || 0; h = parseFloat(svg.getAttribute('height')) || 0; }
+      if (!w) { const b = svg.getBBox(); w = b.width; h = b.height; }
+      if (!w) { const r = svg.getBoundingClientRect(); w = r.width || 900; h = r.height || 600; }
+      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      return { w, h };
+    }
+
+    function setAdaptiveHeight() {
+      if (!svgW) return;
+      const usableW = Math.max(280, wrap.getBoundingClientRect().width - 2);
+      const idealH = (svgH / svgW) * usableW + config.fitPadding * 2;
+      const maxVp = Math.floor(innerHeight * config.maxHeightVh);
+      const hardMax = Math.min(config.maxHeightPx, Math.max(config.minHeight + 40, maxVp));
+      wrap.style.height = Math.round(clamp(idealH, config.minHeight, hardMax)) + 'px';
+    }
+
+    function openInNewTab() {
+      const svg = canvas.querySelector('svg');
+      if (!svg) return;
+      const clone = svg.cloneNode(true);
+      clone.style.width = ''; clone.style.height = '';
+      const bg = isDark ? '#0d1622' : '#eef2f7';
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Diagram</title><style>
+      body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background:${bg};padding:40px;box-sizing:border-box}
+      svg{max-width:100%;max-height:90vh;height:auto}
+      </style></head><body>${clone.outerHTML}</body></html>`;
+      open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
+    }
+
+    async function render() {
+      try {
+        const code = source.textContent.trim();
+        if (!code) { label.textContent = 'Error: empty'; return; }
+        const id = 'd-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        const { svg } = await mermaid.render(id, code);
+        canvas.innerHTML = svg;
+        const svgNode = canvas.querySelector('svg');
+        if (!svgNode) { label.textContent = 'Error: no SVG'; return; }
+        const size = readSvgNaturalSize(svgNode);
+        svgW = size.w; svgH = size.h;
+        svgNode.removeAttribute('width'); svgNode.removeAttribute('height');
+        svgNode.style.maxWidth = 'none'; svgNode.style.display = 'block';
+        setAdaptiveHeight();
+        fitDiagram();
+      } catch (err) {
+        console.error(err);
+        label.textContent = 'Error: ' + (err.message || 'render failed');
+      }
+    }
+
+    const actions = {
+      'zoom-in': () => zoomAround(1 + config.zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-out': () => zoomAround(1 / (1 + config.zoomStep), viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-fit': fitDiagram,
+      'zoom-one': setOneToOne,
+      'zoom-expand': openInNewTab
+    };
+    Object.entries(actions).forEach(([a, fn]) => {
+      wrap.querySelector(`[data-action="${a}"]`)?.addEventListener('click', fn);
+    });
+
+    viewport.addEventListener('dblclick', fitDiagram);
+
+    viewport.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        const factor = e.deltaY < 0 ? 1 + config.zoomStep : 1 / (1 + config.zoomStep);
+        zoomAround(factor, e.clientX - rect.left, e.clientY - rect.top);
+        return;
+      }
+      if (canPan()) { e.preventDefault(); panX -= e.deltaX; panY -= e.deltaY; applyTransform(); }
+    }, { passive: false });
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.zoom-controls') || !canPan()) return;
+      wrap.classList.add('is-panning');
+      sx = e.clientX; sy = e.clientY; spx = panX; spy = panY;
+      e.preventDefault();
+      activeDrag = {
+        onMove: (ev) => { panX = spx + (ev.clientX - sx); panY = spy + (ev.clientY - sy); applyTransform(); },
+        onEnd: () => wrap.classList.remove('is-panning')
+      };
+    });
+
+    new ResizeObserver(() => { if (svgW) { setAdaptiveHeight(); fitDiagram(); } }).observe(wrap);
+    render();
+  }
+
+  document.querySelectorAll('.diagram-shell').forEach(initDiagram);
+</script>
+
+</body>
+</html>

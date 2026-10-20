@@ -15,6 +15,8 @@ it applied, and hands a human a prioritised queue.
 > then take it to production. This repo has a piece of every one of those
 > stages, and it runs offline with no API key so you can start immediately.
 
+**Visual walkthrough:** https://telsangvi.github.io/doc-intake-triage/
+
 ---
 
 ## Quickstart
