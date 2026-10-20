@@ -1,140 +1,224 @@
 # Document Intake Triage
 
-A small, readable project that turns messy case documents into a structured
-**review queue** — built as a hands-on way to practise the Forward Deployed
-AI Engineer (FDE) skill set.
+A public-benefits office receives a pile of unstructured documents — applications,
+medical letters, ID proofs, income slips. Someone has to read each one, pull out
+the key details, notice what's missing, and decide what to do next.
 
-The scenario: a public-benefits office receives a pile of unstructured
-documents (applications, medical letters, ID proofs, income slips). Staff read
-each one, pull out the key fields, notice what's missing, and decide what
-happens next. This project does the first pass automatically, cites the policy
-it applied, and hands a human a prioritised queue.
+This project does that first pass automatically. It reads each document, extracts
+the fields, checks them against the office's policy, and sorts everything into a
+**review queue** with the reason attached to every item.
 
-> **Why this shape?** FDE roles are consistently described as: embed with a
-> customer, find the real workflow, prototype fast, **measure it with evals**,
-> then take it to production. This repo has a piece of every one of those
-> stages, and it runs offline with no API key so you can start immediately.
+**It sorts and flags. It never decides who gets benefits.**
 
-**Visual walkthrough:** https://telsangvi.github.io/doc-intake-triage/
+> **Looking for the plain-language overview?** There's a visual walkthrough for
+> users at <https://telsangvi.github.io/doc-intake-triage/>. This README is the
+> engineering side: how it works, and why it's built this way.
 
 ---
 
-## Quickstart
+## The whole thing in one diagram
 
-```bash
-pip install -r requirements.txt
-
-python -m src.cli run data/samples     # process the sample documents
-python -m src.cli eval                 # score against the labelled gold set
-python -m src.cli tune                 # sweep the routing thresholds
-python -m src.cli retrieve "income evidence"   # inspect the policy index
-python -m pytest -q                    # run the tests
-
-uvicorn src.api:app --reload           # then open http://127.0.0.1:8000
+```mermaid
+flowchart TD
+    A["A document (PDF or text)"] --> B["1. Read it into text"]
+    B --> C["2. Pull out the fields"]
+    C --> D["3. Check: complete? confident?"]
+    D --> E["4. Find the policy rule"]
+    E --> F{"5. Decide"}
+    F -->|"complete + confident"| G["auto_route"]
+    F -->|"a required field is missing"| H["incomplete"]
+    F -->|"present, but not trusted"| I["human_review"]
+    G --> J["One review queue"]
+    H --> J
+    I --> J
 ```
 
-No API key is required. Everything runs with a built-in offline extractor.
-
-### Containerised
-
-```bash
-docker compose up --build              # then open http://127.0.0.1:8000
-```
+Five steps, one decision. Each step is a small module you can read on its own —
+they're deliberately kept separate so you can change one without understanding
+the others.
 
 ---
 
-## What happens to a document
+## Step by step
 
-```
-file ─► ingest ─► extract ─► validate ─► retrieve ─► route
-       (text)    (model →    (policy +   (cite the   (auto_route /
-                  typed       confidence) policy)     human_review /
-                  object)                             incomplete)
-```
+### 1. Read the file — `src/ingest.py`
 
-- **ingest** (`src/ingest.py`) — PDF/text → plain text.
-- **extract** (`src/extract.py` + `src/llm.py`) — the model returns a JSON
-  object; we coerce it into a typed `Extraction`. Every field carries a
-  confidence.
-- **validate** (`src/validate.py`) — two separate checks: *completeness*
-  (are required fields present?) and *confidence* (do we trust the values?).
-- **retrieve** (`src/retrieve.py`) — find the policy clause the decision
-  relies on, so the rationale is citable.
-- **route** (`src/schemas.py`) — three outcomes:
-  - `auto_route` — complete and confident, straight through
-  - `incomplete` — a required field is missing, goes back to the applicant
-  - `human_review` — present but uncertain, a person decides
+Turns a file into plain text. PDFs go through `pypdf`; text and markdown are read
+directly. One function, `read_document(path)`, so nothing downstream has to know
+or care what format the input was.
 
-That split — *missing* vs *untrusted* — is the whole point. It is what lets a
-system be useful without pretending to be certain.
+*Why it's separate:* in the real world intake is messy — scans, exports, plain
+text, multi-page PDFs. That messiness belongs in one place.
 
----
+### 2. Pull out the fields — `src/extract.py` + `src/llm.py`
 
-## Retrieval (the RAG half)
+The text goes to a model, which returns a JSON object: the document type, the
+fields it found, and a **confidence score for each field**.
 
-A decision that says "missing income" is only useful if it can say *which rule*
-it applied. `src/retrieve.py` indexes the office's policy corpus in
-`data/policy/`, chunks it on headings so every passage keeps its clause id, and
-attaches the top matches to each result:
+Then `extract.py` coerces that JSON into a typed `Extraction` object. This is
+deliberately defensive — models return slightly different shapes, and one odd
+field should never crash the pipeline.
+
+*Why it's separate:* the model is a component, not the system. Everything else is
+written against one interface (`LLMClient`), so the model can be swapped without
+touching the pipeline. See [The two seams](#the-two-seams-that-keep-it-swappable).
+
+### 3. Check it — `src/validate.py`
+
+Two independent questions, deliberately kept apart:
+
+| Question | What it looks for | What happens if the answer is bad |
+| --- | --- | --- |
+| **Is it complete?** | Are the fields the policy requires actually present? | Goes back to the applicant |
+| **Do we trust it?** | Is each value above the confidence threshold? | Goes to a human |
+
+There are **two** confidence thresholds, not one:
+
+- below `low` (default `0.60`) — the value isn't trustworthy at all, so flag it
+- below `high` (default `0.85`) — present and plausible, but not good enough to
+  auto-route
+
+Both live in `src/config.py` and can be set by environment variable.
+
+### 4. Find the rule — `src/retrieve.py`
+
+A decision that says *"missing income"* is only useful if it can also say **which
+rule** it applied. This step searches the office's policy corpus and attaches the
+matching clause to the result:
 
 ```
 - case_002_application.txt: Missing required field(s): monthly_income.
   Request from applicant. Applies 4.2(a) Requirement.
 ```
 
-The embedder is swappable, exactly like the model. `HashingEmbedder` runs
-offline with no network, so the project still starts with zero setup. It matches
-on vocabulary, not meaning — swap in `OpenAIEmbedder` (or any real embedding
-model) before you trust the ranking. Being honest about which one you're running
-is part of the job.
+The policy documents live in `data/policy/` as markdown. They're split on `##`
+headings, so every passage keeps its clause id — a citation without a clause id
+isn't auditable.
 
-```bash
-python -m src.cli retrieve "identity document name mismatch"
-```
+### 5. Decide — `src/schemas.py`
 
-### Vector store: Supabase (optional)
+The two checks above combine into one of three outcomes:
 
-By default retrieval runs **in memory** and needs nothing but Python. For a real
-vector store, the same interface is backed by Postgres + pgvector:
-
-```bash
-# 1. apply the schema (sql/001_triage_policy_passages.sql)
-# 2. point the app at your database and load the corpus
-export RETRIEVER_BACKEND=supabase
-export SUPABASE_DB_URL=postgresql://...   # from the Supabase dashboard
-python -m src.cli load-policy
-python -m src.cli retrieve "income evidence"
-```
-
-The passages live in a dedicated `triage` schema — separate from any
-application tables — with RLS on and no public policies. The corpus is chunked
-on headings so every row keeps its clause id, and `triage.match_policy_passages`
-does cosine search over an HNSW index.
-
-The connection string is read from the environment and never written to the
-repo. `RETRIEVER_BACKEND=memory` (the default) keeps the project fully offline,
-so you can develop without a database and switch when you need one.
+| Decision | Meaning | Where it goes |
+| --- | --- | --- |
+| `auto_route` | Complete, and every required field cleared the high threshold | Straight through |
+| `incomplete` | A required field is absent | Back to the applicant |
+| `human_review` | Everything present, but something isn't trusted | A caseworker looks |
 
 ---
 
-## Tuning
+## Why "missing" and "unclear" are different
 
-"Tuning" is three different jobs, kept apart in `src/tuning.py`:
+This is the central design decision, and it's worth being explicit about it.
 
-1. **Routing-policy tuning** — choosing the confidence thresholds. This is a
-   business decision: how much risk of a wrong auto-route will the customer
-   accept? `python -m src.cli tune` grid-searches the thresholds against the
-   gold set and reports decision accuracy alongside auto-route precision,
-   because the two trade off.
-2. **Prompt / few-shot tuning** — `PROMPT_VARIANTS` holds candidate templates.
-   Score them with the eval harness; keep the winner.
-3. **Fine-tuning** — `python -m src.cli export-ft` writes a labelled training
-   file in provider chat format. It **does not launch a job**: that needs
-   credentials and spends money, so it stays a deliberate manual step.
+- A **missing** field is a problem with the applicant's paperwork. The fix is to
+  ask them for it. That's a cheap, well-understood loop.
+- An **unclear** field is a problem with the document itself — a bad scan,
+  handwriting, or placeholder text where a value should be. The fix is a person
+  looking at it. You cannot ask the applicant to re-send what they already sent.
 
-One honest note: under `provider=mock` the extractor ignores the prompt, so a
-prompt sweep scores identically for every variant. That is the lesson, not a
-bug — you cannot tune a model that does not read your prompt.
+Collapsing these into a single "needs attention" bucket is how intake systems end
+up either nagging applicants for things they already provided, or quietly
+guessing at values nobody can read. Separating them is what makes the output
+usable without the system pretending to be certain.
+
+---
+
+## The two seams that keep it swappable
+
+Two things in this system will always change: the model, and the way documents
+are embedded for search. Both sit behind a small interface, with a fully offline
+implementation as the default.
+
+| Seam | Interface | Default (offline) | Real options |
+| --- | --- | --- | --- |
+| The model | `LLMClient.extract_document()` | `MockLLM` — regex-based | `OpenAILLM`, `AnthropicLLM` |
+| Embeddings | `Embedder.embed()` | `HashingEmbedder` — bag-of-words | `OpenAIEmbedder` |
+| Vector store | `.search(query, k)` | In-memory index | `SupabaseRetriever` (Postgres + pgvector) |
+
+The payoff is that the project **runs with no API key and no network**. You can
+develop, test, and demo it without an account, a budget, or a data-processing
+agreement. Swapping in the real thing is a config change, not a rewrite.
+
+**The mock is a stand-in, not a replacement.** Evals run green against it because
+the gold set was written to match the sample documents — that proves the *harness*
+works, not that the system is accurate on real data. Point it at a real model, or
+at messier documents, and the scorecard will move. Watching it move is the point.
+
+---
+
+## How it's scored — `src/evals.py`
+
+Three numbers, because there are three different things to get right:
+
+```
+doc-type accuracy: 100%    did we classify the document correctly?
+decision accuracy: 100%    did we route it the way a human would?
+field accuracy   : 100%    did we extract the right values?
+```
+
+The harness compares against `data/labels.jsonl` — a gold set of documents with
+human-verified fields, classifications, and expected routing. Field-level misses
+are printed by name; those are the next iteration.
+
+`src/tuning.py` also sweeps the routing thresholds against the gold set and
+reports **auto-route precision alongside decision accuracy**, because they trade
+off. A conservative setting routes fewer documents but is rarely wrong — which is
+usually what a public-sector customer actually wants.
+
+```bash
+python -m src.cli eval     # the scorecard
+python -m src.cli tune     # the threshold sweep
+```
+
+---
+
+## The policy corpus and the vector store
+
+Retrieval runs **in memory by default** and needs nothing but Python. To back it
+with a real vector store, the same interface is served by Postgres + pgvector:
+
+```bash
+# 1. apply the schema:  sql/001_triage_policy_passages.sql
+# 2. point the app at your database and load the corpus
+export RETRIEVER_BACKEND=supabase
+export SUPABASE_DB_URL=postgresql://...      # from your dashboard
+python -m src.cli load-policy
+```
+
+The schema puts the passages in a dedicated `triage` schema, separate from any
+application tables, with row-level security on and no public policies. The search
+function does cosine similarity over an HNSW index.
+
+The connection string is read from the environment only — never hardcoded, never
+committed. `RETRIEVER_BACKEND=memory` (the default) keeps everything offline, so
+you can develop without a database and switch when you need one.
+
+---
+
+## Running it
+
+```bash
+pip install -r requirements.txt
+
+python -m src.cli run data/samples              # process and print the queue
+python -m src.cli eval                          # score against the gold set
+python -m src.cli tune                          # sweep routing thresholds
+python -m src.cli retrieve "income evidence"    # inspect the policy index
+python -m src.cli export-ft                     # write a fine-tune dataset
+python -m pytest -q                             # run the tests
+
+uvicorn src.api:app --reload                    # then open http://127.0.0.1:8000
+```
+
+No API key is required for any of it. Containerised:
+
+```bash
+docker compose up --build
+```
+
+To use a real model, copy `.env.example` to `.env` and set
+`DOC_TRIAGE_PROVIDER=openai` with your key.
 
 ---
 
@@ -144,83 +228,73 @@ bug — you cannot tune a model that does not read your prompt.
 doc-intake-triage/
 ├── src/
 │   ├── config.py      # env-driven settings, safe defaults
-│   ├── schemas.py     # the output contract + the office's policy table
-│   ├── llm.py         # provider-agnostic client: mock | openai | anthropic
-│   ├── ingest.py      # file -> text (pdf/txt/md)
+│   ├── schemas.py     # the output contract + the office's required-field table
+│   ├── llm.py         # provider-agnostic model client: mock | openai | anthropic
+│   ├── ingest.py      # file -> text (pdf / txt / md)
 │   ├── extract.py     # model output -> validated Extraction
 │   ├── validate.py    # completeness + confidence -> decision
 │   ├── retrieve.py    # policy index + retrieval (memory or Supabase/pgvector)
 │   ├── load_policy.py # embed the corpus into the Supabase vector store
-│   ├── pipeline.py    # orchestration
+│   ├── pipeline.py    # orchestration: files in, review queue out
 │   ├── evals.py       # the evaluation harness
 │   ├── tuning.py      # threshold sweep, prompt variants, fine-tune export
-│   ├── cli.py         # run / eval / tune / export-ft / retrieve
+│   ├── cli.py         # run / eval / tune / export-ft / retrieve / load-policy
 │   └── api.py         # FastAPI service
 ├── app/index.html     # one-page review-queue UI
 ├── data/
 │   ├── samples/       # 6 synthetic case documents
 │   ├── policy/        # the office's policy corpus (retrieval source)
 │   └── labels.jsonl   # the gold set the evals score against
-├── sql/               # the pgvector schema (triage.policy_passages)
+├── sql/               # the pgvector schema
 ├── tests/             # routing, retrieval, and end-to-end tests
-├── Dockerfile         # container image
-├── docker-compose.yml # local run
-├── .github/workflows/ # CI: tests + eval gate
+├── docs/              # the published user-facing walkthrough
+├── Dockerfile
+├── docker-compose.yml
+├── .github/workflows/ # CI: tests + eval gate on every push
 └── PROJECT_PLAN.md    # the engagement plan this code implements
 ```
 
 ---
 
-## Swapping in a real model
+## Extending it
 
-The model is a component, not the system. Set two env vars and the same
-pipeline calls a real provider:
+**Add a document type.** Add it to `DocType` in `src/schemas.py`, add its
+required fields to the `REQUIRED_FIELDS` table, and give `MockLLM` a few
+classification keywords. Then add a sample and a label so the evals cover it.
 
-```bash
-cp .env.example .env
-# set DOC_TRIAGE_PROVIDER=openai and OPENAI_API_KEY=...
-python -m src.cli run data/samples
-```
+**Add a model provider.** Write one class with an `extract_document()` method in
+`src/llm.py`, and add it to `get_client()`. That's the whole change.
 
-`src/llm.py` defines one interface (`extract_document`) with three
-implementations: `MockLLM` (offline, regex), `OpenAILLM`, `AnthropicLLM`.
-Adding a fourth provider is one small class.
+**Change the policy.** Edit the markdown in `data/policy/`, then re-run
+`load-policy` if you're using the Supabase backend. The chunker picks up clause
+ids from the `##` headings automatically.
 
-The **mock** is a stand-in, not a replacement. Your evals run green against it
-because the gold set was written to match the sample documents — that proves
-the *harness* works, not that the system is accurate on real data. Point it at
-a real model, or at messier documents, and the scorecard will move. Watching it
-move is the exercise.
+**Change how strict the routing is.** Adjust `LOW_CONF_THRESHOLD` and
+`HIGH_CONF_THRESHOLD`, or run `tune` to see the trade-off first.
 
 ---
 
-## Where to take it next (your FDE reps)
+## Design decisions, and why
 
-Roughly in order of learning value:
-
-1. **Add hard documents.** Photos of forms, multi-page PDFs, two applicants on
-   one page. Watch the scorecard drop, then fix it. This is the real job.
-2. **Fuzzy field matching.** Right now evals compare strings exactly. Add
-   normalisation for dates and currency so "INR 18,500" == "18,500".
-3. **Real embeddings.** Swap `HashingEmbedder` for a semantic embedder and
-   measure whether retrieval actually improves the cited clause.
-4. **Human-in-the-loop feedback.** Let a reviewer correct a field in the UI and
-   append the correction to the gold set. Now the system improves with use.
-5. **Batch + queue persistence.** Store results in SQLite; add a status per
-   case (new / reviewed / sent back).
-6. **Cost & latency.** Log tokens and ms per document; add a cheap-model-first
-   fallback for easy documents.
-7. **Policy config, not code.** Move `REQUIRED_FIELDS` into a YAML file the
-   customer can edit without a deploy.
-
-Each of these maps to a line you can say in an interview: *"the customer
-needed X, so I changed Y, and the eval went from A to B."*
+- **Confidence is a first-class field.** Every value carries a score, so the
+  system can say "I found it, but I'm not sure" instead of guessing.
+- **Two thresholds, not one.** A value can be too unreliable to trust at all, or
+  fine but not good enough to skip review. Those are different bars.
+- **Fail toward a human, never toward a guess.** Anything uncertain routes to a
+  person. A wrong auto-route is worse than no automation at all.
+- **Every decision cites its rule.** The clause is stored with the result, so
+  "why did this go back?" is answerable months later.
+- **Offline by default.** A stand-in model and embedder mean zero setup, zero
+  cost, and no credentials — which also makes the whole thing testable in CI.
+- **The contract is the product.** The JSON shape in `schemas.py` is what the
+  customer's case system consumes and what the evals score. The model is
+  swappable; the contract is not.
 
 ---
 
 ## Notes
 
 - All sample data is **synthetic** — no real personal or health information.
-- If you adapt this to real records, handle them as sensitive from the start:
+- If you adapt this to real records, treat them as sensitive from the start:
   data minimisation, access control, and no secrets in the repo.
-- Built to be read. If a file is confusing, that is a bug — open it and fix it.
+- Built to be read. If a file is confusing, that's a bug — open it and fix it.
