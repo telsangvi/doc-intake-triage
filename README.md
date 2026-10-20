@@ -90,6 +90,29 @@ is part of the job.
 python -m src.cli retrieve "identity document name mismatch"
 ```
 
+### Vector store: Supabase (optional)
+
+By default retrieval runs **in memory** and needs nothing but Python. For a real
+vector store, the same interface is backed by Postgres + pgvector:
+
+```bash
+# 1. apply the schema (sql/001_triage_policy_passages.sql)
+# 2. point the app at your database and load the corpus
+export RETRIEVER_BACKEND=supabase
+export SUPABASE_DB_URL=postgresql://...   # from the Supabase dashboard
+python -m src.cli load-policy
+python -m src.cli retrieve "income evidence"
+```
+
+The passages live in a dedicated `triage` schema — separate from any
+application tables — with RLS on and no public policies. The corpus is chunked
+on headings so every row keeps its clause id, and `triage.match_policy_passages`
+does cosine search over an HNSW index.
+
+The connection string is read from the environment and never written to the
+repo. `RETRIEVER_BACKEND=memory` (the default) keeps the project fully offline,
+so you can develop without a database and switch when you need one.
+
 ---
 
 ## Tuning
@@ -124,7 +147,8 @@ doc-intake-triage/
 │   ├── ingest.py      # file -> text (pdf/txt/md)
 │   ├── extract.py     # model output -> validated Extraction
 │   ├── validate.py    # completeness + confidence -> decision
-│   ├── retrieve.py    # policy index + retrieval (RAG)
+│   ├── retrieve.py    # policy index + retrieval (memory or Supabase/pgvector)
+│   ├── load_policy.py # embed the corpus into the Supabase vector store
 │   ├── pipeline.py    # orchestration
 │   ├── evals.py       # the evaluation harness
 │   ├── tuning.py      # threshold sweep, prompt variants, fine-tune export
@@ -135,6 +159,7 @@ doc-intake-triage/
 │   ├── samples/       # 6 synthetic case documents
 │   ├── policy/        # the office's policy corpus (retrieval source)
 │   └── labels.jsonl   # the gold set the evals score against
+├── sql/               # the pgvector schema (triage.policy_passages)
 ├── tests/             # routing, retrieval, and end-to-end tests
 ├── Dockerfile         # container image
 ├── docker-compose.yml # local run

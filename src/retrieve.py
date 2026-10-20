@@ -21,6 +21,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
 
+from .config import settings
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_POLICY_DIR = PROJECT_ROOT / "data" / "policy"
 
@@ -42,8 +44,8 @@ class HashingEmbedder:
     stand-in: swap it for a real embedding model before you trust the ranking.
     """
 
-    def __init__(self, dim: int = 512) -> None:
-        self.dim = dim
+    def __init__(self, dim: int | None = None) -> None:
+        self.dim = dim or settings.embedding_dim
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         vectors: list[list[float]] = []
@@ -110,6 +112,10 @@ class Retriever:
         self.embedder = embedder or HashingEmbedder()
         self._vectors = self.embedder.embed([p.text for p in passages]) if passages else []
 
+    @property
+    def size(self) -> int:
+        return len(self.passages)
+
     def search(self, query: str, k: int = 3) -> list[tuple[float, Passage]]:
         if not self.passages:
             return []
@@ -131,7 +137,68 @@ def build_index(policy_dir: str | Path = DEFAULT_POLICY_DIR) -> Retriever:
     return Retriever(passages)
 
 
+class SupabaseRetriever:
+    """Postgres + pgvector backend (Supabase).
+
+    Same `search` contract as the in-memory `Retriever`, so the pipeline never
+    knows which one it is talking to. The connection string comes from the
+    environment — never hardcode it, and never commit it.
+    """
+
+    def __init__(
+        self,
+        dsn: str | None = None,
+        embedder: Embedder | None = None,
+        function: str = "triage.match_policy_passages",
+        table: str = "triage.policy_passages",
+    ) -> None:
+        self.dsn = dsn or settings.supabase_db_url
+        if not self.dsn:
+            raise RuntimeError(
+                "SUPABASE_DB_URL is not set. To use the Supabase backend, set "
+                "RETRIEVER_BACKEND=supabase and SUPABASE_DB_URL=<postgres dsn>."
+            )
+        self.embedder = embedder or HashingEmbedder()
+        self.function = function
+        self.table = table
+
+    def _connect(self):
+        import psycopg  # optional dependency, imported lazily
+
+        return psycopg.connect(self.dsn)
+
+    def search(self, query: str, k: int = 3) -> list[tuple[float, Passage]]:
+        vector = "[" + ",".join(f"{x:.5f}" for x in self.embedder.embed([query])[0]) + "]"
+        sql = (
+            "select id, source, clause, content, similarity "
+            f"from {self.function}(%s::extensions.vector, %s)"
+        )
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(sql, (vector, k))
+            rows = cur.fetchall()
+        return [
+            (float(sim), Passage(id=rid, source=src, clause=clause, text=content))
+            for rid, src, clause, content, sim in rows
+        ]
+
+    @property
+    def size(self) -> int:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(f"select count(*) from {self.table}")
+            return int(cur.fetchone()[0])
+
+
+def build_retriever(backend: str | None = None) -> Retriever | SupabaseRetriever:
+    """Pick the vector-store backend from config. Defaults to the offline one."""
+    backend = (backend or settings.retriever_backend).lower()
+    if backend == "supabase":
+        return SupabaseRetriever()
+    if backend == "memory":
+        return build_index()
+    raise ValueError(f"Unknown retriever backend: {backend!r}. Use memory|supabase.")
+
+
 @lru_cache(maxsize=1)
-def default_retriever() -> Retriever:
-    """Cached index over the bundled policy corpus."""
-    return build_index()
+def default_retriever() -> Retriever | SupabaseRetriever:
+    """Cached retriever for the configured backend."""
+    return build_retriever()

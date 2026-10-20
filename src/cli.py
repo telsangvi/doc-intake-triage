@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .evals import print_scorecard, run_evals
 from .llm import get_client
+from .load_policy import load_policy_into_supabase
 from .pipeline import process_directory, process_file
 from .retrieve import default_retriever
 from .tuning import export_finetune_dataset, print_sweep, sweep_thresholds
@@ -74,10 +75,16 @@ def cmd_export(args: argparse.Namespace) -> int:
 
 def cmd_retrieve(args: argparse.Namespace) -> int:
     retriever = default_retriever()
-    print(f"\nPolicy index: {len(retriever.passages)} passage(s)\n")
+    print(f"\nPolicy index: {retriever.size} passage(s)\n")
     for score, passage in retriever.search(args.query, k=args.k):
         print(f"[{score:.3f}] {passage.clause}  ({passage.source})")
         print(f"    {passage.text[:200].strip()}...\n")
+    return 0
+
+
+def cmd_load_policy(args: argparse.Namespace) -> int:
+    n = load_policy_into_supabase(args.policy_dir)
+    print(f"\nLoaded {n} passage(s) into the Supabase vector store.\n")
     return 0
 
 
@@ -110,6 +117,10 @@ def build_parser() -> argparse.ArgumentParser:
     ret_p.add_argument("query")
     ret_p.add_argument("-k", type=int, default=3)
     ret_p.set_defaults(func=cmd_retrieve)
+
+    load_p = sub.add_parser("load-policy", help="embed the policy corpus into Supabase")
+    load_p.add_argument("--policy-dir", default="data/policy")
+    load_p.set_defaults(func=cmd_load_policy)
     return parser
 
 

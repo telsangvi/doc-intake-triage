@@ -1,9 +1,11 @@
 """The policy index and the citation path."""
 from pathlib import Path
 
+import pytest
+
 from src.llm import MockLLM
 from src.pipeline import process_directory
-from src.retrieve import build_index, chunk_markdown, default_retriever
+from src.retrieve import Retriever, build_index, build_retriever, chunk_markdown, default_retriever
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 
@@ -23,7 +25,7 @@ def test_income_query_finds_the_income_clause():
 
 def test_index_loads_the_bundled_corpus():
     retriever = build_index(DATA / "policy")
-    assert len(retriever.passages) >= 4
+    assert retriever.size >= 4
 
 
 def test_routing_attaches_a_policy_reference():
@@ -31,3 +33,20 @@ def test_routing_attaches_a_policy_reference():
     incomplete = results["case_002_application.txt"]
     assert incomplete.decision.value == "incomplete"
     assert incomplete.policy_refs, "an incomplete case should cite a policy clause"
+
+
+def test_backend_defaults_to_offline_memory():
+    assert isinstance(build_retriever("memory"), Retriever)
+
+
+def test_unknown_backend_is_rejected():
+    with pytest.raises(ValueError):
+        build_retriever("nonsense")
+
+
+def test_embedding_dimension_matches_the_schema():
+    """The offline embedder must produce vectors the DB column can accept."""
+    from src.config import settings
+
+    vec = build_index(DATA / "policy").embedder.embed(["test"])[0]
+    assert len(vec) == settings.embedding_dim
